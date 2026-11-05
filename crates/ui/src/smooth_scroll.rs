@@ -1,6 +1,7 @@
 //! Animated scrolling: for any element that tracks a `ScrollHandle`
-//! ([`Scroller`]), and for a `uniform_list` of fixed-height rows
-//! ([`SmoothScroll`]).
+//! ([`Scroller`]), for a `uniform_list` of fixed-height rows
+//! ([`SmoothScroll`]), and for a `list` of rows of any height
+//! ([`ListScroller`]).
 //!
 //! GPUI jumps straight to the new offset, both for `scroll_to_item` and for
 //! mouse-wheel notches. This keeps a target offset instead and moves the list
@@ -15,8 +16,8 @@ use std::{
 };
 
 use gpui::{
-    Context, DispatchPhase, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, ScrollDelta, ScrollHandle, ScrollStrategy, ScrollWheelEvent, Styled,
+    Context, DispatchPhase, IntoElement, ListState, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, Pixels, ScrollDelta, ScrollHandle, ScrollStrategy, ScrollWheelEvent, Styled,
     UniformListScrollHandle, WeakEntity, canvas, point, px,
 };
 
@@ -25,6 +26,27 @@ use gpui::{
 const TAU: f32 = 0.045;
 /// Closer than this to the target, snap to it and stop.
 const SETTLE_PX: f32 = 0.5;
+
+/// One frame of the ease-out from `current` towards `target`, `last_tick`
+/// being when the previous frame was drawn (None on a move's first frame).
+/// Returns the new offset and whether it has settled on the target.
+fn ease(current: f32, target: f32, last_tick: &mut Option<Instant>) -> (f32, bool) {
+    let now = Instant::now();
+    // The first frame of a move, and frames after a stall, count as one 60 Hz frame
+    // at most 50 ms long, so a hitch doesn't turn into a jump.
+    let dt = last_tick
+        .map_or(Duration::from_millis(16), |last| now - last)
+        .min(Duration::from_millis(50))
+        .as_secs_f32();
+    let next = current + (target - current) * (1. - (-dt / TAU).exp());
+    if (target - next).abs() < SETTLE_PX {
+        *last_tick = None;
+        (target, true)
+    } else {
+        *last_tick = Some(now);
+        (next, false)
+    }
+}
 
 /// Eases a scroll handle towards a target offset. Track [`Scroller::handle`]
 /// on the scrolling element, feed it wheel notches with [`capture_wheel`],
@@ -86,27 +108,12 @@ impl Scroller {
         let Some(target) = self.target else {
             return false;
         };
-        let now = Instant::now();
-        // The first frame of a move, and frames after a stall, count as one 60 Hz frame
-        // at most 50 ms long, so a hitch doesn't turn into a jump.
-        let dt = self
-            .last_tick
-            .map_or(Duration::from_millis(16), |last| now - last)
-            .min(Duration::from_millis(50))
-            .as_secs_f32();
-        self.last_tick = Some(now);
-
-        let current = self.offset();
-        let next = current + (target - current) * (1. - (-dt / TAU).exp());
-        if (target - next).abs() < SETTLE_PX {
-            self.set_offset(target);
+        let (next, settled) = ease(self.offset(), target, &mut self.last_tick);
+        self.set_offset(next);
+        if settled {
             self.target = None;
-            self.last_tick = None;
-            false
-        } else {
-            self.set_offset(next);
-            true
         }
+        !settled
     }
 
     /// Where the content is heading: the target while moving, else where it is.
@@ -306,6 +313,136 @@ impl SmoothScroll {
     /// Height available to rows, inside the list's padding.
     fn viewport(&self) -> f32 {
         self.scroller.height() - 2. * self.padding
+    }
+}
+
+/// Eases a `list` (rows of any height, measured as they are drawn) towards
+/// a target offset, for wheel notches and for keeping a row in view.
+pub struct ListScroller {
+    state: ListState,
+    /// The list element's vertical padding, both sides together: GPUI's
+    /// scroll range includes it, but the measured height it reports doesn't.
+    padding: f32,
+    enabled: bool,
+    target: Option<f32>,
+    last_tick: Option<Instant>,
+}
+
+impl ListScroller {
+    pub fn new(state: ListState, padding: f32, enabled: bool) -> Self {
+        Self {
+            state,
+            padding,
+            enabled,
+            target: None,
+            last_tick: None,
+        }
+    }
+
+    pub fn state(&self) -> ListState {
+        self.state.clone()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Turning it off finishes a running animation at once.
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+        if !enabled && let Some(target) = self.target.take() {
+            self.set_offset(target);
+        }
+    }
+
+    /// Starts over with `count` rows of unknown height, at the top.
+    pub fn reset(&mut self, count: usize) {
+        self.target = None;
+        self.state.reset(count);
+    }
+
+    /// Jumps to the top, for new content.
+    pub fn scroll_to_top(&mut self) {
+        self.target = None;
+        self.state.scroll_to(gpui::ListOffset::default());
+    }
+
+    /// Scrolls by `delta` (positive moves the content down, like GPUI's wheel
+    /// delta), within the rows measured so far.
+    pub fn scroll_by(&mut self, delta: Pixels) {
+        let to = self.heading() + f32::from(delta);
+        self.move_to(to.clamp(-self.max(), 0.));
+    }
+
+    /// Scrolls just enough to show each of `rows` in turn (the last wins),
+    /// as GPUI's own `scroll_to_reveal_item` would; eased when `animate`
+    /// and smooth scrolling is on, else at once (as for new content).
+    pub fn reveal(&mut self, rows: &[usize], animate: bool) {
+        if !animate || !self.enabled || self.state.viewport_bounds().size.height <= px(0.) {
+            for &row in rows {
+                self.state.scroll_to_reveal_item(row);
+            }
+            self.target = None;
+            return;
+        }
+        // Ask GPUI where the row would put the list, measured from where the
+        // list is heading so holding an arrow doesn't fall behind, then go
+        // back and ease there instead.
+        let current = self.offset();
+        self.set_offset(self.heading());
+        for &row in rows {
+            self.state.scroll_to_reveal_item(row);
+        }
+        let to = self.offset();
+        self.set_offset(current);
+        if (to - current).abs() >= SETTLE_PX {
+            self.move_to(to);
+        } else {
+            self.target = None;
+        }
+    }
+
+    /// Advances the animation by one frame. Call it from `render`; returns
+    /// whether another frame is needed.
+    pub fn tick(&mut self) -> bool {
+        let Some(target) = self.target else {
+            return false;
+        };
+        // Rows further down are only measured once drawn, so the range can
+        // grow during a move; never head past what is known now.
+        let target = target.clamp(-self.max(), 0.);
+        let (next, settled) = ease(self.offset(), target, &mut self.last_tick);
+        self.set_offset(next);
+        self.target = (!settled).then_some(target);
+        !settled
+    }
+
+    fn heading(&self) -> f32 {
+        self.target.unwrap_or_else(|| self.offset())
+    }
+
+    fn move_to(&mut self, to: f32) {
+        if self.enabled {
+            if self.target.is_none() {
+                self.last_tick = None;
+            }
+            self.target = Some(to);
+        } else {
+            self.set_offset(to);
+        }
+    }
+
+    fn max(&self) -> f32 {
+        f32::from(self.state.max_offset_for_scrollbar().height) + self.padding
+    }
+
+    fn offset(&self) -> f32 {
+        f32::from(self.state.scroll_px_offset_for_scrollbar().y)
+    }
+
+    fn set_offset(&self, y: f32) {
+        self.state
+            .set_offset_from_scrollbar(point(px(0.), px(y.min(0.))));
     }
 }
 

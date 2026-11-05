@@ -24,9 +24,9 @@ use std::{
 
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, EntityInputHandler, FocusHandle, Focusable,
-    Hsla, KeyBinding, KeyDownEvent, Keystroke, ListAlignment, ListOffset, ListState, RenderImage,
-    ScrollHandle, SharedString, Subscription, Task, UniformListScrollHandle, Window, actions,
-    canvas, div, hsla, img, prelude::*, px, relative, rgba, uniform_list,
+    Hsla, KeyBinding, KeyDownEvent, Keystroke, ListAlignment, ListState, RenderImage, ScrollHandle,
+    SharedString, Subscription, Task, UniformListScrollHandle, Window, actions, canvas, div, hsla,
+    img, prelude::*, px, relative, rgba, uniform_list,
 };
 use image::{Frame, RgbaImage};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -55,10 +55,10 @@ use self::{
     clipboard::{PREVIEW_LIST_WIDTH, PreviewImage},
     links::PendingLink,
     qr::QrImage,
-    views::{CHOICE_CONTEXT, GridLine, Screen},
+    views::{CHOICE_CONTEXT, GRID_PADDING, GridLine, Screen},
 };
 use crate::{
-    smooth_scroll::{SmoothScroll, capture_wheel, drag_track},
+    smooth_scroll::{ListScroller, SmoothScroll, capture_wheel, drag_track},
     text_input::{self, TextInput},
     theme,
 };
@@ -514,8 +514,8 @@ pub struct Launcher {
     /// Holds the keyboard in views without a search field (details, forms).
     focus: FocusHandle,
     /// The grid's lines, which differ in height (headings, tiles).
-    grid_list: ListState,
-    /// The lines `grid_list` was last measured for.
+    grid_scroll: ListScroller,
+    /// The lines `grid_scroll` was last measured for.
     grid_shape: Vec<GridLine>,
     /// Ranks the rows of a list opened from root search.
     list_searcher: Searcher,
@@ -722,7 +722,11 @@ impl Launcher {
             editor: None,
             screens: Vec::new(),
             focus: cx.focus_handle(),
-            grid_list: ListState::new(0, ListAlignment::Top, px(TILE_OVERDRAW)),
+            grid_scroll: ListScroller::new(
+                ListState::new(0, ListAlignment::Top, px(TILE_OVERDRAW)),
+                2. * GRID_PADDING,
+                smooth_scrolling,
+            ),
             grid_shape: Vec::new(),
             list_searcher: Searcher::default(),
             live_cancel: None,
@@ -1070,6 +1074,7 @@ impl Launcher {
 
     pub fn set_smooth_scrolling(&mut self, enabled: bool, cx: &mut Context<Self>) {
         self.scroll.set_enabled(enabled);
+        self.grid_scroll.set_enabled(enabled);
         self.set_detail_smooth_scrolling(enabled);
         cx.notify();
     }
@@ -1264,7 +1269,7 @@ impl Launcher {
         self.panel = None;
         self.confirming = None;
         self.scroll.reset();
-        self.grid_list.scroll_to(ListOffset::default());
+        self.grid_scroll.scroll_to_top();
         ms(started.elapsed())
     }
 
@@ -1404,7 +1409,7 @@ impl Launcher {
     /// Scrolls so the selected row shows, with its heading when it starts a
     /// section.
     fn reveal_selected(&mut self) {
-        self.reveal_selected_tile();
+        self.reveal_selected_tile(true);
         let line = self.line_of(self.selected);
         let count = self.line_count();
         let heading = self
@@ -3886,7 +3891,8 @@ impl Render for Launcher {
             (collapsed && self.compact_favorites).then(|| self.render_compact_favorites(cx));
         // Both run, so neither waits on the other's frame.
         let detail_moving = self.tick_detail_scroll();
-        if self.scroll.tick() || detail_moving {
+        let grid_moving = self.grid_scroll.tick();
+        if self.scroll.tick() || detail_moving || grid_moving {
             window.request_animation_frame();
         }
 

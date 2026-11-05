@@ -28,6 +28,8 @@ use crate::{
 /// Tiles per grid row.
 pub(super) const GRID_COLUMNS: usize = 5;
 const TILE_HEIGHT: f32 = 112.;
+/// The grid's padding above its first line and below its last.
+pub(super) const GRID_PADDING: f32 = 4.;
 const TILE_ICON: f32 = 44.;
 /// A tile's width: the grid row's, less its padding, by the columns.
 const TILE_WIDTH: f32 = (super::WINDOW_SIZE.0 - 16.) / GRID_COLUMNS as f32;
@@ -671,15 +673,16 @@ impl Launcher {
     }
 
     /// Scrolls the grid so the selected tile shows, with the heading above
-    /// it when it is in a section's first line.
-    pub(super) fn reveal_selected_tile(&self) {
+    /// it when it is in a section's first line; eased when `animate`.
+    pub(super) fn reveal_selected_tile(&mut self, animate: bool) {
         let lines = self.grid_lines();
         let Some(line) = lines.iter().position(|line| line.holds(self.selected)) else {
             return;
         };
-        self.grid_list.scroll_to_reveal_item(line);
         if line > 0 && matches!(lines[line - 1], GridLine::Heading(_)) {
-            self.grid_list.scroll_to_reveal_item(line - 1);
+            self.grid_scroll.reveal(&[line, line - 1], animate);
+        } else {
+            self.grid_scroll.reveal(&[line], animate);
         }
     }
 
@@ -687,7 +690,7 @@ impl Launcher {
         if next != self.selected {
             self.selected = next;
             self.confirming = None;
-            self.reveal_selected_tile();
+            self.reveal_selected_tile(true);
             cx.notify();
         }
     }
@@ -898,12 +901,12 @@ impl Launcher {
         // Lines differ in height, which the list measures once: it starts
         // over when they change.
         if lines != self.grid_shape {
-            self.grid_list.reset(lines.len());
+            self.grid_scroll.reset(lines.len());
             self.grid_shape = lines;
-            self.reveal_selected_tile();
+            self.reveal_selected_tile(false);
         }
-        list(
-            self.grid_list.clone(),
+        let grid = list(
+            self.grid_scroll.state(),
             cx.processor(|this, line: usize, window, cx| {
                 match this.grid_shape.get(line).copied() {
                     Some(GridLine::Heading(section)) => {
@@ -926,8 +929,22 @@ impl Launcher {
             }),
         )
         .size_full()
-        .py_1()
-        .into_any_element()
+        .py(px(GRID_PADDING));
+        // Wheel notches are animated instead; everything else falls through to GPUI.
+        let wheel = capture_wheel(cx.entity().downgrade(), |this: &mut Self, delta, cx| {
+            if !this.grid_scroll.is_enabled() {
+                return false;
+            }
+            this.grid_scroll.scroll_by(delta);
+            cx.notify();
+            true
+        });
+        div()
+            .size_full()
+            .relative()
+            .child(grid)
+            .child(wheel)
+            .into_any_element()
     }
 
     fn render_tile(&self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
