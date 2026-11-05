@@ -54,6 +54,10 @@ pub struct Palette {
     pub control_hover: u32,
     /// The well of a control that is off, like a switch's track.
     pub control_alt: u32,
+    /// A push button or a field-like control at rest, and its outline: on a
+    /// card the outline is what sets it apart.
+    pub control: u32,
+    pub control_border: u32,
     /// The bottom edge of a key cap.
     pub keycap_border: u32,
     /// A result row or tile that is selected, and one under the pointer.
@@ -121,6 +125,9 @@ pub static THEMES: &[Theme] = &[
             control_hover: 0xffffff1f,
             // ControlAltFillColorSecondary.
             control_alt: 0x00000019,
+            // ControlFillColorDefault, ControlStrokeColorSecondary.
+            control: 0xffffff0f,
+            control_border: 0xffffff18,
             // ControlStrokeColorDefault, the lower edge of a control.
             keycap_border: 0xffffff12,
             // SubtleFillColorSecondary for hover; selection one step up
@@ -167,15 +174,20 @@ pub static THEMES: &[Theme] = &[
             // DividerStrokeColorDefault.
             hairline: 0x0000000f,
             window_border: 0xc6c6c6,
-            // CardBackgroundFillColorDefault, ControlFillColorSecondary,
-            // CardStrokeColorDefault.
+            // CardBackgroundFillColorDefault and CardStrokeColorDefault.
+            // Hover is SubtleFillColorSecondary, a touch darker: WinUI's
+            // ControlFillColorSecondary is near-white and vanishes on a card.
             surface: 0xffffffb3,
-            surface_hover: 0xf9f9f980,
+            surface_hover: 0x0000000b,
             surface_border: 0x0000000f,
-            // SubtleFillColorSecondary over a card.
-            control_hover: 0x0000000d,
+            // A step above that.
+            control_hover: 0x00000014,
             // ControlAltFillColorSecondary.
             control_alt: 0x00000006,
+            // ControlFillColorDefault; the outline is between WinUI's
+            // ControlStrokeColorDefault and the darker lower edge it adds.
+            control: 0xffffffb3,
+            control_border: 0x00000024,
             // ControlStrokeColorSecondary, the lower edge of a control.
             keycap_border: 0x00000029,
             // SubtleFillColorSecondary for hover; selection one step up.
