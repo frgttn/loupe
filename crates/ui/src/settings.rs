@@ -3756,19 +3756,39 @@ fn switch(
     on: bool,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<gpui::Div> {
+    // WinUI's ToggleSwitch: a 40×20 track, outlined while off, filled with
+    // the accent while on; a 12px thumb that grows to 14px under the pointer.
+    let p = theme::p();
     div()
         .id(id)
+        .group("switch")
         .on_click(on_click)
         .flex_none()
         .cursor_pointer()
         .w(px(40.))
-        .h(px(22.))
-        .p(px(3.))
+        .h(px(20.))
+        .px(px(2.))
         .rounded_full()
+        .border_1()
         .flex()
-        .when(on, |el| el.bg(rgba(theme::p().accent)).justify_end())
-        .when(!on, |el| el.bg(rgba(theme::p().surface_hover)))
-        .child(div().size(px(16.)).rounded_full().bg(rgba(0xffffffff)))
+        .items_center()
+        .when(on, |el| {
+            el.bg(rgba(p.accent))
+                .border_color(rgba(p.accent))
+                .justify_end()
+        })
+        .when(!on, |el| {
+            el.bg(rgba(p.control_alt))
+                .border_color(rgba(p.scrollbar_active))
+        })
+        .child(
+            div()
+                .size(px(12.))
+                .m(px(1.))
+                .rounded_full()
+                .bg(rgba(if on { p.on_accent } else { p.text_muted }))
+                .group_hover("switch", |thumb| thumb.size(px(14.)).m(px(0.))),
+        )
 }
 
 fn custom_engine_input(template: &str, cx: &mut Context<Settings>) -> Entity<TextInput> {

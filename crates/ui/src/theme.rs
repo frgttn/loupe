@@ -58,6 +58,8 @@ pub struct Palette {
     pub surface_border: u32,
     /// A control under the pointer, over `surface_hover`.
     pub control_hover: u32,
+    /// The well of a control that is off, like a switch's track.
+    pub control_alt: u32,
     /// The bottom edge of a key cap.
     pub keycap_border: u32,
     /// A result row or tile that is selected, and one under the pointer.
@@ -140,6 +142,7 @@ const fn catppuccin(f: Flavour, light: bool) -> Palette {
         surface_hover: with_alpha(f.text, surface_hover),
         surface_border: with_alpha(f.text, surface_border),
         control_hover: with_alpha(f.text, control_hover),
+        control_alt: if light { 0x00000006 } else { 0x00000019 },
         keycap_border: if light { 0x00000030 } else { 0x00000066 },
         selected: with_alpha(f.text, selected),
         hover: with_alpha(f.text, hover),
@@ -162,40 +165,66 @@ pub const SPOTLIGHT_LIGHT: &str = "spotlight-light";
 
 /// The built-in themes. The first of each appearance is its default; the
 /// rest are listed in this order.
+///
+/// The two defaults follow WinUI 3's own theme resources (the Windows 11
+/// Fluent tokens), with the default system accent #0078D4. The token each
+/// value comes from is named beside it; where the launcher needs a step
+/// WinUI doesn't have, the nearest token is used and the comment says so.
 pub static THEMES: &[Theme] = &[
     Theme {
         id: SPOTLIGHT_DARK,
         name: "Spotlight Dark",
         appearance: Appearance::Dark,
         palette: Palette {
-            background: 0x1c1c1ef7,
-            hud: 0x1c1c1ed2,
-            sidebar: 0x00000030,
-            text: 0xecececff,
-            text_muted: 0xffffffa8,
-            text_faint: 0xffffff8a,
-            text_dim: 0xffffff70,
-            text_empty: 0xffffff60,
-            hairline: 0xffffff24,
-            window_border: 0x56565c,
-            surface: 0xffffff0a,
-            surface_hover: 0xffffff1a,
-            surface_border: 0xffffff14,
-            control_hover: 0xffffff26,
-            keycap_border: 0x00000066,
-            selected: 0xffffff1f,
+            // SolidBackgroundFillColorBase / Mica base.
+            background: 0x202020f7,
+            // AcrylicBackgroundFillColorDefault tint.
+            hud: 0x2c2c2cd2,
+            // Darker than the Mica base, like NavigationView's pane.
+            sidebar: 0x0000001f,
+            // TextFillColorPrimary / Secondary / Tertiary / Disabled.
+            text: 0xffffffff,
+            text_muted: 0xffffffc5,
+            text_faint: 0xffffff87,
+            text_dim: 0xffffff87,
+            text_empty: 0xffffff5d,
+            // DividerStrokeColorDefault.
+            hairline: 0xffffff15,
+            window_border: 0x484848,
+            // CardBackgroundFillColorDefault, ControlFillColorSecondary,
+            // CardStrokeColorDefault.
+            surface: 0xffffff0d,
+            surface_hover: 0xffffff15,
+            surface_border: 0x00000019,
+            // A step above ControlFillColorSecondary.
+            control_hover: 0xffffff1f,
+            // ControlAltFillColorSecondary.
+            control_alt: 0x00000019,
+            // ControlStrokeColorDefault, the lower edge of a control.
+            keycap_border: 0xffffff12,
+            // SubtleFillColorSecondary for hover; selection one step up
+            // (WinUI marks it with the accent pill instead).
+            selected: 0xffffff15,
             hover: 0xffffff0f,
-            panel: 0x2a2a2eff,
-            accent: 0x4f7cffff,
-            accent_soft: 0x4f7cff2e,
-            on_accent: 0xffffffff,
-            success: 0x7fd4a0ff,
-            error: 0xff8a7aff,
-            scrollbar: 0xffffff33,
-            scrollbar_active: 0xffffff66,
-            caret: 0x6aa8ff,
-            selection: 0x6aa8ff55,
-            placeholder: 0xffffff80,
+            // SolidBackgroundFillColorQuarternary, a flyout.
+            panel: 0x2c2c2cff,
+            // AccentFillColorDefault (SystemAccentColorLight2) and
+            // TextOnAccentFillColorPrimary.
+            accent: 0x60cdffff,
+            accent_soft: 0x60cdff2e,
+            on_accent: 0x000000ff,
+            // SystemFillColorSuccess / Critical.
+            success: 0x6ccb5fff,
+            error: 0xff99a4ff,
+            // ControlStrongFillColorDisabled / Default.
+            scrollbar: 0xffffff5d,
+            scrollbar_active: 0xffffff8b,
+            // TextBox: the caret is the text colour; the selection is
+            // SystemAccentColor.
+            caret: 0xffffff,
+            selection: 0x0078d4b3,
+            // TextFillColorTertiary, so it reads as a hint next to typed text.
+            placeholder: 0xffffff87,
         },
     },
     Theme {
@@ -203,34 +232,52 @@ pub static THEMES: &[Theme] = &[
         name: "Spotlight Light",
         appearance: Appearance::Light,
         palette: Palette {
-            background: 0xf5f5f7f7,
-            hud: 0xf5f5f7e6,
-            sidebar: 0x0000000d,
-            text: 0x1d1d1fff,
-            text_muted: 0x000000a0,
-            text_faint: 0x0000008a,
-            text_dim: 0x00000090,
-            text_empty: 0x00000070,
-            hairline: 0x0000001c,
-            window_border: 0xc4c4ca,
-            surface: 0x00000008,
-            surface_hover: 0x00000012,
-            surface_border: 0x00000018,
-            control_hover: 0x0000001c,
-            keycap_border: 0x00000030,
-            selected: 0x0000001a,
-            hover: 0x0000000d,
+            // SolidBackgroundFillColorBase / Mica base.
+            background: 0xf3f3f3f7,
+            // AcrylicBackgroundFillColorDefault tint.
+            hud: 0xfcfcfce6,
+            sidebar: 0x0000000a,
+            // TextFillColorPrimary / Secondary / Tertiary / Disabled.
+            text: 0x000000e4,
+            text_muted: 0x0000009e,
+            text_faint: 0x00000072,
+            text_dim: 0x00000072,
+            text_empty: 0x0000005c,
+            // DividerStrokeColorDefault.
+            hairline: 0x0000000f,
+            window_border: 0xc6c6c6,
+            // CardBackgroundFillColorDefault, ControlFillColorSecondary,
+            // CardStrokeColorDefault.
+            surface: 0xffffffb3,
+            surface_hover: 0xf9f9f980,
+            surface_border: 0x0000000f,
+            // SubtleFillColorSecondary over a card.
+            control_hover: 0x0000000d,
+            // ControlAltFillColorSecondary.
+            control_alt: 0x00000006,
+            // ControlStrokeColorSecondary, the lower edge of a control.
+            keycap_border: 0x00000029,
+            // SubtleFillColorSecondary for hover; selection one step up.
+            selected: 0x0000000f,
+            hover: 0x00000009,
+            // SolidBackgroundFillColorQuarternary, a flyout.
             panel: 0xffffffff,
-            accent: 0x2f6bffff,
-            accent_soft: 0x2f6bff26,
+            // AccentFillColorDefault (SystemAccentColorDark1) and
+            // TextOnAccentFillColorPrimary.
+            accent: 0x005fb8ff,
+            accent_soft: 0x005fb826,
             on_accent: 0xffffffff,
-            success: 0x1f8f4eff,
-            error: 0xd6382aff,
-            scrollbar: 0x00000033,
-            scrollbar_active: 0x00000066,
-            caret: 0x2f6bff,
-            selection: 0x2f6bff44,
-            placeholder: 0x00000073,
+            // SystemFillColorSuccess / Critical.
+            success: 0x0f7b0fff,
+            error: 0xc42b1cff,
+            // ControlStrongFillColorDisabled / Default.
+            scrollbar: 0x0000005c,
+            scrollbar_active: 0x00000072,
+            // TextBox: the caret is the text colour; the selection is
+            // SystemAccentColor, lighter so dark text stays readable on it.
+            caret: 0x000000,
+            selection: 0x0078d466,
+            placeholder: 0x00000072,
         },
     },
     Theme {
