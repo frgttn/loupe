@@ -8,7 +8,6 @@
 //! top bars are the drag area and carry their own close button.
 
 use std::{
-    cell::Cell,
     ops::Range,
     rc::Rc,
     sync::{Arc, OnceLock},
@@ -16,10 +15,10 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, ElementId, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, Image, ImageFormat, KeyBinding, MouseDownEvent, PathPromptOptions,
-    Pixels, ScrollHandle, SharedString, Stateful, Subscription, Task, Window, WindowControlArea,
-    actions, canvas, deferred, div, img, prelude::*, px, rgba,
+    AnyElement, App, ClickEvent, Context, ElementId, Entity, EventEmitter, FocusHandle, Focusable,
+    FontWeight, Image, ImageFormat, KeyBinding, PathPromptOptions, Pixels, ScrollHandle,
+    SharedString, Stateful, Subscription, Task, Window, WindowControlArea, actions, div, img,
+    prelude::*, px, rgba,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use spotlight_core::{
@@ -76,6 +75,9 @@ pub struct LauncherState {
     pub search_engine: (SearchEngine, String),
     /// Commands that open from links without asking: item id and title.
     pub trusted_links: Vec<(String, String)>,
+    /// The Layout setting, which the launcher's Ctrl+Shift+G changes too:
+    /// every list as a grid.
+    pub grid_layout: bool,
 }
 
 /// Reads the launcher's current state; `None` while the launcher can't be
@@ -104,10 +106,12 @@ pub enum SettingsEvent {
     CompactFavoritesChanged(bool),
     /// Root search ranks often-used items first (or no longer does).
     RankByUsageChanged(bool),
+    /// Root search and every list show their rows as tiles (or as rows).
+    LayoutChanged(bool),
     /// Root search no longer lists these kinds before anything is typed.
     HiddenSectionsChanged(Vec<HomeSection>),
-    /// The theme choice is now this one; apply it, redraw and save it.
-    ThemeChanged(theme::Choice),
+    /// The theme mode is now this one; apply it, redraw and save it.
+    ThemeChanged(theme::Mode),
     /// The web search engine is now this one; switch to it and save it.
     SearchEngineChanged(SearchEngine),
     /// The clipboard history now keeps this much; trim it and save it.
@@ -179,13 +183,11 @@ pub struct Settings {
     shortcut_message: Option<(String, SharedString, bool)>,
     smooth_scrolling: bool,
     window_mode: WindowMode,
+    /// Rows as tiles: read from the launcher, which saves it.
+    grid_layout: bool,
     compact_favorites: bool,
     rank_by_usage: bool,
     hidden_sections: Vec<HomeSection>,
-    /// The theme dropdown whose menu is open.
-    theme_menu: Option<theme::Appearance>,
-    /// Where each theme dropdown's button was last laid out (dark, light).
-    theme_buttons: [Rc<Cell<Bounds<Pixels>>>; 2],
     search_engine: SearchEngine,
     /// The engine's name: a quicklink engine's is only known to the launcher.
     engine_name: String,
@@ -346,6 +348,7 @@ impl Settings {
             excluded_apps,
             search_engine: (_, engine_name),
             trusted_links,
+            grid_layout,
         } = launcher(cx).unwrap_or_default();
         let engine_name = if engine_name.is_empty() {
             search_engine.name()
@@ -365,11 +368,10 @@ impl Settings {
             shortcut_message: None,
             smooth_scrolling,
             window_mode,
+            grid_layout,
             compact_favorites,
             rank_by_usage,
             hidden_sections,
-            theme_menu: None,
-            theme_buttons: Default::default(),
             custom_engine: match &search_engine {
                 SearchEngine::Custom(template) => Some(custom_engine_input(template, cx)),
                 SearchEngine::Preset(_) | SearchEngine::Quicklink(_) => None,
@@ -434,6 +436,7 @@ impl Settings {
         self.ignored_apps = state.ignored_apps;
         self.excluded_apps = state.excluded_apps;
         self.trusted_links = state.trusted_links;
+        self.grid_layout = state.grid_layout;
         let (engine, name) = state.search_engine;
         if engine != self.search_engine && self.custom_engine.is_none() {
             self.search_engine = engine;
@@ -810,6 +813,123 @@ impl Settings {
         }
     }
 
+    fn set_grid_layout(&mut self, grid: bool, cx: &mut Context<Self>) {
+        if grid != self.grid_layout {
+            self.grid_layout = grid;
+            cx.emit(SettingsEvent::LayoutChanged(grid));
+            cx.notify();
+        }
+    }
+
+    /// List and Grid side by side, each a small picture of the results.
+    fn layout_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let choices = [false, true].map(|grid| {
+            let selected = grid == self.grid_layout;
+            let (id, label) = if grid {
+                ("layout-grid", "Grid")
+            } else {
+                ("layout-list", "List")
+            };
+            let bar = |width: f32| {
+                div()
+                    .w(px(width))
+                    .h(px(2.))
+                    .rounded_full()
+                    .bg(rgba(theme::p().surface_hover))
+            };
+            let picture = div()
+                .w(px(92.))
+                .h(px(50.))
+                .rounded(px(3.))
+                .border_1()
+                .border_color(rgba(theme::p().surface_border))
+                .bg(rgba(theme::p().panel))
+                .p(px(4.))
+                .flex()
+                .flex_col()
+                .gap(px(4.))
+                .when(!grid, |picture| {
+                    picture.children([40., 52., 34., 46.].map(|width| {
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(3.))
+                            .child(
+                                div()
+                                    .size(px(5.))
+                                    .rounded(px(1.))
+                                    .bg(rgba(theme::p().text_faint)),
+                            )
+                            .child(bar(width))
+                    }))
+                })
+                .when(grid, |picture| {
+                    picture.children((0..2).map(|_| {
+                        div().flex().justify_between().children((0..4).map(|_| {
+                            div()
+                                .w(px(17.))
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .gap(px(2.))
+                                .child(
+                                    div()
+                                        .size(px(10.))
+                                        .rounded(px(2.))
+                                        .bg(rgba(theme::p().text_faint)),
+                                )
+                                .child(bar(12.))
+                        }))
+                    }))
+                });
+            div()
+                .id(id)
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap_1p5()
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| this.set_grid_layout(grid, cx)))
+                .child(
+                    div()
+                        .w(px(132.))
+                        .h(px(76.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(8.))
+                        .border_2()
+                        .border_color(rgba(if selected {
+                            theme::p().accent
+                        } else {
+                            theme::p().surface_border
+                        }))
+                        .bg(rgba(if selected {
+                            theme::p().accent_soft
+                        } else {
+                            theme::p().surface
+                        }))
+                        .hover(|style| style.bg(rgba(theme::p().surface_hover)))
+                        .child(picture),
+                )
+                .child(
+                    div()
+                        .px_2()
+                        .rounded(px(5.))
+                        .text_size(px(12.))
+                        .line_height(px(20.))
+                        .when(selected, |label| label.bg(rgba(theme::p().surface_hover)))
+                        .text_color(rgba(if selected {
+                            theme::p().text
+                        } else {
+                            theme::p().text_muted
+                        }))
+                        .child(label),
+                )
+        });
+        div().flex_none().flex().gap_3().children(choices)
+    }
+
     /// The two window modes side by side, each a small picture of the window.
     fn window_mode_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let choices = [WindowMode::Compact, WindowMode::Expanded].map(|mode| {
@@ -902,10 +1022,10 @@ impl Settings {
         div().flex_none().flex().gap_3().children(choices)
     }
 
-    fn set_theme_choice(&mut self, choice: theme::Choice, cx: &mut Context<Self>) {
-        if choice != theme::choice() {
+    fn set_theme_mode(&mut self, mode: theme::Mode, cx: &mut Context<Self>) {
+        if mode != theme::mode() {
             // The event's handler applies it and redraws every window.
-            cx.emit(SettingsEvent::ThemeChanged(choice));
+            cx.emit(SettingsEvent::ThemeChanged(mode));
             cx.notify();
         }
     }
@@ -913,7 +1033,9 @@ impl Settings {
     /// System, Light and Dark side by side, each a small picture of the
     /// window in the theme it would use.
     fn theme_mode_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let current = theme::choice();
+        let current = theme::mode();
+        let light = theme::theme_of(theme::Appearance::Light);
+        let dark = theme::theme_of(theme::Appearance::Dark);
         let sample = |theme: &'static theme::Theme, width: f32| {
             let palette = &theme.palette;
             div()
@@ -941,9 +1063,7 @@ impl Settings {
                 )
         };
         let choices = theme::Mode::ALL.map(|mode| {
-            let selected = mode == current.mode;
-            let light = theme::theme(current.light).unwrap_or(&theme::THEMES[1]);
-            let dark = theme::theme(current.dark).unwrap_or(&theme::THEMES[0]);
+            let selected = mode == current;
             let preview = div()
                 .w(px(92.))
                 .h(px(50.))
@@ -966,15 +1086,7 @@ impl Settings {
                 .items_center()
                 .gap_1p5()
                 .cursor_pointer()
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.set_theme_choice(
-                        theme::Choice {
-                            mode,
-                            ..theme::choice()
-                        },
-                        cx,
-                    )
-                }))
+                .on_click(cx.listener(move |this, _, _, cx| this.set_theme_mode(mode, cx)))
                 .child(
                     div()
                         .w(px(112.))
@@ -1013,130 +1125,6 @@ impl Settings {
                 )
         });
         div().flex_none().flex().gap_3().children(choices)
-    }
-
-    /// A dropdown of the themes of `appearance`: the one in use on a button,
-    /// the rest in a menu under it.
-    fn theme_dropdown(
-        &self,
-        appearance: theme::Appearance,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let (key, slot) = match appearance {
-            theme::Appearance::Dark => ("theme-dark", 0),
-            theme::Appearance::Light => ("theme-light", 1),
-        };
-        let open = self.theme_menu == Some(appearance);
-        let used_id = theme::choice().theme_for(appearance);
-        let used = theme::theme(used_id).unwrap_or(&theme::THEMES[0]);
-        let button_bounds = self.theme_buttons[slot].clone();
-        let button = div()
-            .id(key)
-            .h(px(30.))
-            .px_2()
-            .flex()
-            .items_center()
-            .gap_2()
-            .rounded(px(7.))
-            .border_1()
-            .border_color(rgba(if open {
-                theme::p().accent
-            } else {
-                theme::p().surface_border
-            }))
-            .bg(rgba(theme::p().surface))
-            .hover(|style| style.bg(rgba(theme::p().surface_hover)))
-            .text_size(px(13.))
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.theme_menu = (this.theme_menu != Some(appearance)).then_some(appearance);
-                cx.notify();
-            }))
-            .child(
-                canvas(
-                    move |bounds, _, _| button_bounds.set(bounds),
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .size_full(),
-            )
-            .child(theme_swatch(used))
-            .child(used.name)
-            .child(
-                div()
-                    .font_family(icon_font())
-                    .text_size(px(10.))
-                    .text_color(rgba(theme::p().text_faint))
-                    .child("\u{E70D}"),
-            );
-        let menu = div()
-            .absolute()
-            .top(px(34.))
-            .right_0()
-            .w(px(240.))
-            .p_1()
-            .flex()
-            .flex_col()
-            .gap_0p5()
-            .rounded(px(8.))
-            .border_1()
-            .border_color(rgba(theme::p().surface_border))
-            .bg(rgba(theme::p().panel))
-            .shadow_md()
-            .occlude()
-            .on_mouse_down_out({
-                let button_bounds = self.theme_buttons[slot].clone();
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    // A click on the button toggles the menu itself.
-                    if !button_bounds.get().contains(&event.position) {
-                        this.theme_menu = None;
-                        cx.notify();
-                    }
-                })
-            })
-            .children(
-                theme::themes_for(appearance)
-                    .enumerate()
-                    .map(|(ix, theme)| {
-                        let selected = theme.id == used_id;
-                        let id = theme.id;
-                        div()
-                            .id((key, ix + 1))
-                            .h(px(28.))
-                            .px_2()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .rounded(px(5.))
-                            .text_size(px(13.))
-                            .cursor_pointer()
-                            .when(selected, |item| item.bg(rgba(theme::p().surface_hover)))
-                            .hover(|style| style.bg(rgba(theme::p().surface_hover)))
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.theme_menu = None;
-                                this.set_theme_choice(theme::choice().with_theme(id), cx);
-                                cx.notify();
-                            }))
-                            .child(theme_swatch(theme))
-                            .child(div().flex_1().child(theme.name))
-                            .when(selected, |item| {
-                                item.child(
-                                    div()
-                                        .font_family(icon_font())
-                                        .text_size(px(11.))
-                                        .text_color(rgba(theme::p().accent))
-                                        .child("\u{E73E}"),
-                                )
-                            })
-                    }),
-            );
-        div()
-            .relative()
-            .flex_none()
-            .child(button)
-            .when(open, |dropdown| {
-                dropdown.child(deferred(menu).with_priority(1))
-            })
     }
 
     fn toggle_source(&mut self, ix: usize, cx: &mut Context<Self>) {
@@ -1977,8 +1965,9 @@ impl Settings {
                     .bg(rgba(theme::p().accent_soft))
             })
             .when(!recording, |el| {
-                el.border_color(rgba(theme::p().surface_border))
-                    .hover(|style| style.bg(rgba(theme::p().surface_hover)))
+                el.border_color(rgba(theme::p().control_border))
+                    .bg(rgba(theme::p().control))
+                    .hover(|style| style.bg(rgba(theme::p().control_hover)))
             })
             .child(content)
     }
@@ -2681,15 +2670,6 @@ impl Settings {
                     .py_3()
                     .child(self.theme_mode_control(cx)),
                 )
-                .children([theme::Appearance::Dark, theme::Appearance::Light].map(|appearance| {
-                    div().child(divider()).child(
-                        row(
-                            format!("{} Theme", appearance.title()),
-                            format!("Used whenever the {} look is on.", appearance.title().to_lowercase()),
-                        )
-                        .child(self.theme_dropdown(appearance, cx)),
-                    )
-                }))
                 .child(divider())
                 .child(
                     row(
@@ -2698,6 +2678,15 @@ impl Settings {
                     )
                     .py_3()
                     .child(self.window_mode_control(cx)),
+                )
+                .child(divider())
+                .child(
+                    row(
+                        "Layout",
+                        "How root search and every list show results. Ctrl+Shift+G switches it in the launcher.",
+                    )
+                    .py_3()
+                    .child(self.layout_control(cx)),
                 )
                 .child(divider())
                 .child(
@@ -3362,7 +3351,9 @@ fn button(id: &'static str, label: &'static str) -> Stateful<gpui::Div> {
         .flex()
         .items_center()
         .rounded(px(7.))
-        .bg(rgba(theme::p().surface_hover))
+        .border_1()
+        .border_color(rgba(theme::p().control_border))
+        .bg(rgba(theme::p().control))
         .text_size(px(13.))
         .cursor_pointer()
         .hover(|style| style.bg(rgba(theme::p().control_hover)))
@@ -3504,22 +3495,6 @@ fn icon_button(id: &'static str, glyph: char, enabled: bool) -> Stateful<gpui::D
 /// Corner radius of a card.
 const CARD_RADIUS: f32 = 10.;
 
-/// A theme in miniature: its window colour with its accent on it.
-fn theme_swatch(theme: &theme::Theme) -> impl IntoElement {
-    let palette = &theme.palette;
-    div()
-        .flex_none()
-        .size(px(18.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(px(5.))
-        .border_1()
-        .border_color(rgba(theme::p().surface_border))
-        .bg(rgba(palette.panel))
-        .child(div().size(px(8.)).rounded_full().bg(rgba(palette.accent)))
-}
-
 fn card() -> gpui::Div {
     div()
         .flex()
@@ -3620,19 +3595,39 @@ fn switch(
     on: bool,
     on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Stateful<gpui::Div> {
+    // WinUI's ToggleSwitch: a 40×20 track, outlined while off, filled with
+    // the accent while on; a 12px thumb that grows to 14px under the pointer.
+    let p = theme::p();
     div()
         .id(id)
+        .group("switch")
         .on_click(on_click)
         .flex_none()
         .cursor_pointer()
         .w(px(40.))
-        .h(px(22.))
-        .p(px(3.))
+        .h(px(20.))
+        .px(px(2.))
         .rounded_full()
+        .border_1()
         .flex()
-        .when(on, |el| el.bg(rgba(theme::p().accent)).justify_end())
-        .when(!on, |el| el.bg(rgba(theme::p().surface_hover)))
-        .child(div().size(px(16.)).rounded_full().bg(rgba(0xffffffff)))
+        .items_center()
+        .when(on, |el| {
+            el.bg(rgba(p.accent))
+                .border_color(rgba(p.accent))
+                .justify_end()
+        })
+        .when(!on, |el| {
+            el.bg(rgba(p.control_alt))
+                .border_color(rgba(p.scrollbar_active))
+        })
+        .child(
+            div()
+                .size(px(12.))
+                .m(px(1.))
+                .rounded_full()
+                .bg(rgba(if on { p.on_accent } else { p.text_muted }))
+                .group_hover("switch", |thumb| thumb.size(px(14.)).m(px(0.))),
+        )
 }
 
 fn custom_engine_input(template: &str, cx: &mut Context<Settings>) -> Entity<TextInput> {
@@ -3685,7 +3680,8 @@ fn chip(
                 .text_color(rgba(theme::p().text))
         })
         .when(!selected, |chip| {
-            chip.border_color(rgba(theme::p().surface_border))
+            chip.border_color(rgba(theme::p().control_border))
+                .bg(rgba(theme::p().control))
                 .text_color(rgba(theme::p().text_muted))
                 .hover(|style| style.bg(rgba(theme::p().surface_hover)))
         })
@@ -3706,7 +3702,8 @@ fn cell(id: impl Into<ElementId>) -> Stateful<gpui::Div> {
         .gap_1()
         .rounded(px(6.))
         .border_1()
-        .border_color(rgba(theme::p().surface_border))
+        .border_color(rgba(theme::p().control_border))
+        .bg(rgba(theme::p().control))
         .text_size(px(13.))
         .cursor_pointer()
         .hover(|style| style.bg(rgba(theme::p().surface_hover)))

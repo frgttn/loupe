@@ -903,8 +903,10 @@ async fn deeplink_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) 
     }
 }
 
-/// Browse Apps: a grid; → moves one tile, ↓ one row. Enter isn't pressed
-/// there, it would launch an app.
+/// The Layout setting, from Browse Apps: as a grid → moves one tile and ↓
+/// one line; Ctrl+Shift+G makes every list rows (↓ one row), and root
+/// search is a grid too. Left as it was found. Enter isn't pressed, it
+/// would launch an app.
 async fn grid_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
     if let Err(why) = open_from_search(window, "browse apps", "Browse Apps", cx).await {
         return why;
@@ -920,6 +922,11 @@ async fn grid_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> S
             })
             .ok()
     };
+    let in_grid = |cx: &mut AsyncApp| {
+        window
+            .update(cx, |launcher, _, cx| launcher.in_grid_view(cx))
+            .ok()
+    };
     let opened = read(cx);
     let Some((Some(title), tiles, 0)) = opened.clone() else {
         return format!("didn't open ({opened:?})");
@@ -927,17 +934,47 @@ async fn grid_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> S
     if title != "Apps" || tiles < 7 {
         return format!("opened {title:?} with {tiles} tiles");
     }
-    press(window, "right", cx);
-    let after_right = read(cx).map(|(_, _, selected)| selected);
-    press(window, "down", cx);
-    let after_down = read(cx).map(|(_, _, selected)| selected);
-    if (after_right, after_down) != (Some(1), Some(6)) {
-        return format!("→ then ↓ selected {after_right:?}, {after_down:?}");
+    let was_grid = in_grid(cx) == Some(true);
+    let outcome = async {
+        if !was_grid {
+            press(window, "ctrl-shift-g", cx);
+            if in_grid(cx) != Some(true) {
+                return "Ctrl+Shift+G didn't make it a grid".to_owned();
+            }
+        }
+        press(window, "right", cx);
+        let after_right = read(cx).map(|(_, _, selected)| selected);
+        press(window, "down", cx);
+        let after_down = read(cx).map(|(_, _, selected)| selected);
+        if (after_right, after_down) != (Some(1), Some(6)) {
+            return format!("→ then ↓ selected {after_right:?}, {after_down:?}");
+        }
+        // Rows, keeping the selection; ↓ moves one row.
+        press(window, "ctrl-shift-g", cx);
+        let as_list = (in_grid(cx), read(cx).map(|(_, _, selected)| selected));
+        press(window, "down", cx);
+        let list_down = read(cx).map(|(_, _, selected)| selected);
+        if as_list != (Some(false), Some(6)) || list_down != Some(7) {
+            return format!("as a list: {as_list:?}, ↓ selected {list_down:?}");
+        }
+        press(window, "ctrl-shift-g", cx);
+        if let Err(why) = back_to_search(window, cx).await {
+            return why;
+        }
+        // The setting is global: root search is a grid now too.
+        if in_grid(cx) != Some(true) {
+            return "root search isn't a grid".to_owned();
+        }
+        format!("{tiles} tiles, → and ↓ move, rows and back, root search a grid, back to search")
     }
-    match back_to_search(window, cx).await {
-        Ok(()) => format!("{tiles} tiles, → and ↓ move, back to search"),
-        Err(why) => why,
+    .await;
+    window
+        .update(cx, |launcher, _, cx| launcher.set_grid_layout(was_grid, cx))
+        .ok();
+    if !outcome.ends_with("back to search") {
+        back_to_search(window, cx).await.ok();
     }
+    outcome
 }
 
 async fn detail_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
