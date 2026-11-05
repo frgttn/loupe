@@ -6,6 +6,12 @@ using Spotlight. Versions follow [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-05
+
+- **Grid layout:** Settings › Appearance › Layout shows root search and every list as tiles instead of rows; Ctrl+Shift+G switches between them from anywhere in the launcher. Clipboard history and file search keep their rows beside the preview. Smooth scrolling works in the grid too.
+- **New look:** the light and dark themes now follow Windows 11's own colours, and the switches in Settings look like Windows ones.
+- **Simpler theme setting:** Settings › Appearance keeps System, Light and Dark. The Catppuccin themes are gone; if you used one, Spotlight switches to its own light or dark theme.
+
 ## [1.0.0] - 2026-10-27
 
 The first release.
