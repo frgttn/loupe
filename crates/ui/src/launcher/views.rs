@@ -11,12 +11,13 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, Context, Entity, FocusHandle, Focusable, RenderImage, ScrollHandle,
-    ScrollStrategy, SharedString, Window, div, img, prelude::*, px, rgba, uniform_list,
+    Animation, AnimationExt, AnyElement, App, Context, Entity, FocusHandle, Focusable, RenderImage,
+    ScrollHandle, SharedString, TextRun, Window, div, img, list, prelude::*, px, rgba,
 };
+use spotlight_core::item::shortcut;
 use spotlight_core::view::{DetailView, FieldKind, FieldValue, FormView, ListView, LiveRows, View};
 
-use super::{Launcher, Row, keycaps};
+use super::{Entry, EntryKind, Launcher, ToggleLayout, keycaps};
 use crate::{
     markdown,
     smooth_scroll::{Scroller, capture_wheel},
@@ -28,16 +29,45 @@ use crate::{
 pub(super) const GRID_COLUMNS: usize = 5;
 const TILE_HEIGHT: f32 = 112.;
 const TILE_ICON: f32 = 44.;
+/// A tile's width: the grid row's, less its padding, by the columns.
+const TILE_WIDTH: f32 = (super::WINDOW_SIZE.0 - 16.) / GRID_COLUMNS as f32;
+/// The room for a tile's title: its width less the tile's padding.
+const TILE_TEXT_WIDTH: f32 = TILE_WIDTH - 8. - 16.;
+const TILE_TEXT_SIZE: f32 = 12.;
+/// A title too long for its tile scrolls this fast while selected…
+const MARQUEE_SPEED: f32 = 30.;
+/// …after resting this long at its start, and again at its end.
+const MARQUEE_REST: f32 = 1.2;
 /// How far ↑/↓ scroll a detail view.
 const DETAIL_STEP: f32 = 48.;
 /// How soon a live list whose rows are still settling asks again.
 const UNSETTLED_RETRY: Duration = Duration::from_secs(1);
+/// `settings` key: `grid` or `list`, how every list shows (root search too).
+pub(super) const LAYOUT_SETTING: &str = "layout";
+
+/// One line of the grid: a section's heading, the calculator's card across
+/// the whole width, or up to [`GRID_COLUMNS`] tiles (rows `start..end`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum GridLine {
+    Heading(usize),
+    Card(usize),
+    Tiles(usize, usize),
+}
+
+impl GridLine {
+    fn holds(self, row: usize) -> bool {
+        match self {
+            GridLine::Heading(_) => false,
+            GridLine::Card(card) => card == row,
+            GridLine::Tiles(start, end) => (start..end).contains(&row),
+        }
+    }
+}
 
 /// One level of the screen stack above root search.
 pub(super) enum Screen {
     List {
         view: ListView,
-        grid: bool,
         /// The provider and view id it came from, to build it again after
         /// a change (an entry deleted); `None` for views carried whole.
         origin: Option<(String, String)>,
@@ -102,15 +132,9 @@ impl Screen {
     /// `smooth`: whether scrolling it animates (the Smooth Scrolling setting).
     fn new(view: View, smooth: bool, cx: &mut Context<Launcher>) -> Self {
         match view {
-            View::List(view) => Screen::List {
+            // Whether rows show as tiles is the Layout setting's, for every list.
+            View::List(view) | View::Grid(view) => Screen::List {
                 view,
-                grid: false,
-                origin: None,
-                filter: 0,
-            },
-            View::Grid(view) => Screen::List {
-                view,
-                grid: true,
                 origin: None,
                 filter: 0,
             },
@@ -417,14 +441,12 @@ impl Launcher {
                 .into(),
             Some(_) => SharedString::default(),
         };
-        let grid = self.in_grid();
         self.input.update(cx, |input, cx| {
             input.clear(cx);
             input.set_placeholder(placeholder, cx);
-            // ←/→ move between tiles; the text cursor has little to do there.
-            input.set_pass_horizontal_arrows(grid);
         });
         self.refilter("");
+        self.sync_grid_arrows(cx);
         match self.screens.last() {
             None | Some(Screen::List { .. }) => window.focus(&self.input.focus_handle(cx)),
             Some(Screen::Detail { .. }) => window.focus(&self.focus),
@@ -518,8 +540,194 @@ impl Launcher {
         }
     }
 
-    pub(super) fn in_grid(&self) -> bool {
-        matches!(self.screens.last(), Some(Screen::List { grid: true, .. }))
+    /// Whether the rows show as tiles: the Layout setting, in root search
+    /// and lists, except those with a preview beside the rows (clipboard
+    /// history, files), which a tile has no room for.
+    pub(super) fn in_grid(&self, cx: &App) -> bool {
+        self.grid_layout
+            && matches!(self.screens.last(), None | Some(Screen::List { .. }))
+            && !self.shows_previews(cx)
+    }
+
+    /// Whether the rows show as tiles. For the self-test.
+    pub fn in_grid_view(&self, cx: &App) -> bool {
+        self.in_grid(cx)
+    }
+
+    /// The Layout setting: every list as a grid (`true`) or as rows.
+    pub fn grid_layout(&self) -> bool {
+        self.grid_layout
+    }
+
+    /// Sets the Layout setting (from Settings, or Ctrl+Shift+G) and saves it.
+    pub fn set_grid_layout(&mut self, grid: bool, cx: &mut Context<Self>) {
+        if grid == self.grid_layout {
+            return;
+        }
+        self.grid_layout = grid;
+        // Two quick switches save in either order; each writes the latest.
+        self.saved_layout.store(grid, Ordering::Relaxed);
+        let latest = self.saved_layout.clone();
+        self.persist(cx, move |store| {
+            let grid = latest.load(Ordering::Relaxed);
+            store.set_setting(LAYOUT_SETTING, if grid { "grid" } else { "list" })
+        });
+        self.sync_grid_arrows(cx);
+        self.reveal_selected();
+        cx.notify();
+    }
+
+    /// ←/→ move between tiles in a grid, so the search field passes them on;
+    /// in rows they move the text cursor.
+    pub(super) fn sync_grid_arrows(&mut self, cx: &mut Context<Self>) {
+        let grid = self.in_grid(cx);
+        self.input
+            .update(cx, |input, _| input.set_pass_horizontal_arrows(grid));
+    }
+
+    /// The action panel's entry that switches the Layout setting, in lists
+    /// opened from root search (not those that always show rows, beside a
+    /// preview). Root search's rows keep their own actions; Ctrl+Shift+G
+    /// works there too.
+    pub(super) fn layout_entry(&self) -> Option<Entry> {
+        match self.screens.last() {
+            Some(Screen::List { view, .. })
+                if !view.items.iter().any(|item| item.preview.is_some()) => {}
+            _ => return None,
+        }
+        let title = if self.grid_layout {
+            "Show as List"
+        } else {
+            "Show as Grid"
+        };
+        Some(Entry::new(title, EntryKind::ToggleLayout).with_shortcut(shortcut::LAYOUT))
+    }
+
+    pub(super) fn toggle_layout_action(
+        &mut self,
+        _: &ToggleLayout,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.panel = None;
+        self.toggle_layout(window, cx);
+    }
+
+    /// Switches every list between tiles and rows, keeping the search text
+    /// and the selection.
+    pub(super) fn toggle_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.collapsed(cx) {
+            return;
+        }
+        let grid = !self.grid_layout;
+        self.set_grid_layout(grid, cx);
+        if matches!(self.screens.last(), None | Some(Screen::List { .. })) {
+            window.focus(&self.input.focus_handle(cx));
+        }
+        self.show_toast(
+            if grid {
+                "Shown as a grid"
+            } else {
+                "Shown as a list"
+            }
+            .into(),
+            cx,
+        );
+    }
+
+    /// The grid's lines for the rows shown: headings where root search's
+    /// sections start, the calculator's card on its own, and tiles between.
+    pub(super) fn grid_lines(&self) -> Vec<GridLine> {
+        fn flush(lines: &mut Vec<GridLine>, run: &mut Option<usize>, end: usize) {
+            let Some(mut start) = run.take() else {
+                return;
+            };
+            while start < end {
+                let stop = (start + GRID_COLUMNS).min(end);
+                lines.push(GridLine::Tiles(start, stop));
+                start = stop;
+            }
+        }
+        let count = self.results.len();
+        let card = self.card_row();
+        let mut lines = Vec::new();
+        let mut run = None;
+        let mut section = 0;
+        for row in 0..count {
+            while section < self.sections.len() && self.sections[section].0 <= row {
+                flush(&mut lines, &mut run, row);
+                lines.push(GridLine::Heading(section));
+                section += 1;
+            }
+            if card == Some(row) {
+                flush(&mut lines, &mut run, row);
+                lines.push(GridLine::Card(row));
+            } else if run.is_none() {
+                run = Some(row);
+            }
+        }
+        flush(&mut lines, &mut run, count);
+        lines
+    }
+
+    /// Scrolls the grid so the selected tile shows, with the heading above
+    /// it when it is in a section's first line.
+    pub(super) fn reveal_selected_tile(&self) {
+        let lines = self.grid_lines();
+        let Some(line) = lines.iter().position(|line| line.holds(self.selected)) else {
+            return;
+        };
+        self.grid_list.scroll_to_reveal_item(line);
+        if line > 0 && matches!(lines[line - 1], GridLine::Heading(_)) {
+            self.grid_list.scroll_to_reveal_item(line - 1);
+        }
+    }
+
+    fn select_tile(&mut self, next: usize, cx: &mut Context<Self>) {
+        if next != self.selected {
+            self.selected = next;
+            self.confirming = None;
+            self.reveal_selected_tile();
+            cx.notify();
+        }
+    }
+
+    /// ←/→ in the grid: the previous or next tile, across lines too.
+    pub(super) fn grid_move(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let count = self.results.len();
+        if count == 0 {
+            return;
+        }
+        let next = (self.selected as isize + delta).clamp(0, count as isize - 1) as usize;
+        self.select_tile(next, cx);
+    }
+
+    /// ↑/↓ in the grid: the tile in the same column of the line above or
+    /// below (its last one when that line is shorter), over headings.
+    pub(super) fn grid_step(&mut self, down: bool, cx: &mut Context<Self>) {
+        let lines = self.grid_lines();
+        let Some(current) = lines.iter().position(|line| line.holds(self.selected)) else {
+            return;
+        };
+        let column = match lines[current] {
+            GridLine::Tiles(start, _) => self.selected - start,
+            _ => 0,
+        };
+        let tiles = |line: &GridLine| !matches!(line, GridLine::Heading(_));
+        let target = if down {
+            lines[current + 1..]
+                .iter()
+                .position(tiles)
+                .map(|ix| current + 1 + ix)
+        } else {
+            lines[..current].iter().rposition(tiles)
+        };
+        let next = match target.map(|ix| lines[ix]) {
+            Some(GridLine::Tiles(start, end)) => (start + column).min(end - 1),
+            Some(GridLine::Card(row)) => row,
+            _ => return,
+        };
+        self.select_tile(next, cx);
     }
 
     /// The items of the open list or grid, to filter.
@@ -527,22 +735,6 @@ impl Launcher {
         match self.screens.last() {
             Some(Screen::List { view, .. }) => Some(&view.items),
             _ => None,
-        }
-    }
-
-    /// Moves the grid selection by `delta` tiles, staying inside the grid.
-    pub(super) fn grid_move(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let count = self.results.len();
-        if count == 0 {
-            return;
-        }
-        let next = (self.selected as isize + delta).clamp(0, count as isize - 1) as usize;
-        if next != self.selected {
-            self.selected = next;
-            self.confirming = None;
-            self.grid_scroll
-                .scroll_to_item(next / GRID_COLUMNS, ScrollStrategy::Center);
-            cx.notify();
         }
     }
 
@@ -693,48 +885,61 @@ impl Launcher {
         };
         let qr = qr.and_then(|text| self.qr_image(&text, window.scale_factor()));
         match self.screens.last()? {
-            Screen::List { grid: true, .. } => Some(self.render_grid(cx)),
-            Screen::List { grid: false, .. } => None,
+            // Rows or tiles: drawn by the launcher, as for root search.
+            Screen::List { .. } => None,
             Screen::Detail { view, scroll } => Some(render_detail(view, scroll, qr, cx)),
             Screen::Form(form) => Some(self.render_form(form, window, cx)),
         }
     }
 
-    fn render_grid(&self, cx: &mut Context<Self>) -> AnyElement {
-        let rows = self.results.len().div_ceil(GRID_COLUMNS);
-        uniform_list(
-            "grid",
-            rows,
-            cx.processor(|this, range: std::ops::Range<usize>, _window, cx| {
-                range
-                    .map(|row| {
-                        let start = row * GRID_COLUMNS;
-                        let end = (start + GRID_COLUMNS).min(this.results.len());
-                        div()
-                            .w_full()
-                            .h(px(TILE_HEIGHT))
-                            .px_2()
-                            .flex()
-                            .children((start..end).map(|ix| this.render_tile(ix, cx)))
-                    })
-                    .collect::<Vec<_>>()
+    /// The rows as tiles, under root search's section headings.
+    pub(super) fn render_grid(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let lines = self.grid_lines();
+        // Lines differ in height, which the list measures once: it starts
+        // over when they change.
+        if lines != self.grid_shape {
+            self.grid_list.reset(lines.len());
+            self.grid_shape = lines;
+            self.reveal_selected_tile();
+        }
+        list(
+            self.grid_list.clone(),
+            cx.processor(|this, line: usize, window, cx| {
+                match this.grid_shape.get(line).copied() {
+                    Some(GridLine::Heading(section)) => {
+                        let title = this.sections[section].1.clone();
+                        super::render_heading(line, title)
+                    }
+                    Some(GridLine::Card(row)) => div()
+                        .px_2()
+                        .child(this.render_card(line, row, 0, cx))
+                        .into_any_element(),
+                    Some(GridLine::Tiles(start, end)) => div()
+                        .w_full()
+                        .h(px(TILE_HEIGHT))
+                        .px_2()
+                        .flex()
+                        .children((start..end).map(|ix| this.render_tile(ix, window, cx)))
+                        .into_any_element(),
+                    None => div().into_any_element(),
+                }
             }),
         )
-        .track_scroll(self.grid_scroll.clone())
         .size_full()
         .py_1()
         .into_any_element()
     }
 
-    fn render_tile(&self, ix: usize, cx: &mut Context<Self>) -> AnyElement {
-        let Some(Row::Computed(item)) = self.results.get(ix) else {
+    fn render_tile(&self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let Some(row) = self.results.get(ix) else {
             return div().into_any_element();
         };
+        let item = self.item(row);
         let selected = ix == self.selected;
         div()
             .id(("tile", ix))
             .flex_1()
-            .max_w(px((super::WINDOW_SIZE.0 - 16.) / GRID_COLUMNS as f32))
+            .max_w(px(TILE_WIDTH))
             .h_full()
             .p_1()
             .child(
@@ -757,16 +962,7 @@ impl Launcher {
                         this.confirm(&super::Confirm, window, cx);
                     }))
                     .child(self.render_icon_sized(item, TILE_ICON))
-                    // Centred when it fits; otherwise cut at the end with "…".
-                    .child(
-                        div().w_full().flex().justify_center().child(
-                            div()
-                                .max_w_full()
-                                .text_size(px(12.))
-                                .truncate()
-                                .child(SharedString::from(item.title.clone())),
-                        ),
-                    ),
+                    .child(tile_title(ix, &item.title, selected, window)),
             )
             .into_any_element()
     }
@@ -1059,5 +1255,67 @@ fn render_detail(
                     })),
             )
         })
+        .into_any_element()
+}
+
+/// A tile's title: centred when it fits. One too long is cut at the end with
+/// "…", and scrolls to its end and back while its tile is selected.
+fn tile_title(ix: usize, title: &str, selected: bool, window: &mut Window) -> AnyElement {
+    let title = SharedString::from(title.to_owned());
+    let overflow = if selected {
+        let font_size = px(TILE_TEXT_SIZE);
+        let run = TextRun {
+            len: title.len(),
+            font: window.text_style().font(),
+            color: window.text_style().color,
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let width = window
+            .text_system()
+            .shape_line(title.clone(), font_size, &[run], None)
+            .width;
+        f32::from(width) - TILE_TEXT_WIDTH
+    } else {
+        0.
+    };
+    if overflow <= 1. {
+        return div()
+            .w_full()
+            .flex()
+            .justify_center()
+            .child(
+                div()
+                    .max_w_full()
+                    .text_size(px(TILE_TEXT_SIZE))
+                    .truncate()
+                    .child(title),
+            )
+            .into_any_element();
+    }
+    let scroll = overflow / MARQUEE_SPEED;
+    let total = MARQUEE_REST + scroll + MARQUEE_REST;
+    // Restarts whenever the tile is selected anew: the id is only there then.
+    div()
+        .w_full()
+        .overflow_hidden()
+        .child(
+            div()
+                .flex_none()
+                .relative()
+                .whitespace_nowrap()
+                .text_size(px(TILE_TEXT_SIZE))
+                .child(title)
+                .with_animation(
+                    ("marquee", ix),
+                    Animation::new(Duration::from_secs_f32(total)).repeat(),
+                    move |text, progress| {
+                        let at = progress * total;
+                        let moved = ((at - MARQUEE_REST) / scroll).clamp(0., 1.);
+                        text.left(px(-overflow * moved))
+                    },
+                ),
+        )
         .into_any_element()
 }

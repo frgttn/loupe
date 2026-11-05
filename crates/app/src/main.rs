@@ -741,6 +741,13 @@ fn settings_changed(state: &AppState, event: &SettingsEvent, cx: &mut App) {
                 .ok();
             save_setting(state, RANK_BY_USAGE_SETTING, enabled.to_string(), cx);
         }
+        SettingsEvent::LayoutChanged(grid) => {
+            // The launcher saves it, as it does after Ctrl+Shift+G.
+            state
+                .launcher
+                .update(cx, |launcher, _, cx| launcher.set_grid_layout(*grid, cx))
+                .ok();
+        }
         SettingsEvent::HiddenSectionsChanged(hidden) => {
             *state.hidden_sections.borrow_mut() = hidden.clone();
             state
@@ -991,6 +998,7 @@ fn launcher_reader(launcher: WindowHandle<Launcher>, web: Arc<Web>) -> LauncherR
             excluded_apps: launcher.excluded_snippet_apps(),
             search_engine: (web.engine(), name),
             trusted_links: launcher.trusted_links(),
+            grid_layout: launcher.grid_layout(),
         })
     })
 }

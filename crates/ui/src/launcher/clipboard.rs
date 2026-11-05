@@ -197,9 +197,7 @@ impl Launcher {
     /// Whether the open list shows a preview beside its rows.
     pub(super) fn shows_previews(&self, cx: &App) -> bool {
         match self.screens.last() {
-            Some(Screen::List {
-                view, grid: false, ..
-            }) => view.items.iter().any(|item| item.preview.is_some()),
+            Some(Screen::List { view, .. }) => view.items.iter().any(|item| item.preview.is_some()),
             // Root search after the file prefix: only files, as in Search
             // Files. The rows of an earlier one stay until the next search,
             // so the field decides.

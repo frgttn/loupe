@@ -24,9 +24,9 @@ use std::{
 
 use gpui::{
     AnyElement, App, ClipboardItem, Context, Entity, EntityInputHandler, FocusHandle, Focusable,
-    Hsla, KeyBinding, KeyDownEvent, Keystroke, RenderImage, ScrollHandle, SharedString,
-    Subscription, Task, UniformListScrollHandle, Window, actions, canvas, div, hsla, img,
-    prelude::*, px, relative, rgba, uniform_list,
+    Hsla, KeyBinding, KeyDownEvent, Keystroke, ListAlignment, ListOffset, ListState, RenderImage,
+    ScrollHandle, SharedString, Subscription, Task, UniformListScrollHandle, Window, actions,
+    canvas, div, hsla, img, prelude::*, px, relative, rgba, uniform_list,
 };
 use image::{Frame, RgbaImage};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -55,7 +55,7 @@ use self::{
     clipboard::{PREVIEW_LIST_WIDTH, PreviewImage},
     links::PendingLink,
     qr::QrImage,
-    views::{CHOICE_CONTEXT, GRID_COLUMNS, Screen},
+    views::{CHOICE_CONTEXT, GridLine, Screen},
 };
 use crate::{
     smooth_scroll::{SmoothScroll, capture_wheel, drag_track},
@@ -78,7 +78,8 @@ actions!(
         ToggleChoice,
         Dismiss,
         Quit,
-        OpenSettings
+        OpenSettings,
+        ToggleLayout
     ]
 );
 
@@ -95,6 +96,8 @@ const HEADING_TRIM: f32 = 10.;
 const ICON_SIZE: f32 = 22.;
 /// Icons are extracted at the grid's tile size, so tiles are sharp too.
 const ICON_EXTRACT_SIZE: f32 = 44.;
+/// How far beyond the visible grid its lines are laid out ahead.
+const TILE_OVERDRAW: f32 = 240.;
 /// A saved icon older than this is extracted again (an app update may change it).
 const ICON_REFRESH_SECS: i64 = 7 * 24 * 3600;
 /// Launcher window size in logical (96-DPI) pixels.
@@ -138,6 +141,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("left", PrevChoice, Some(CHOICE_CONTEXT)),
         KeyBinding::new("space", ToggleChoice, Some(CHOICE_CONTEXT)),
         KeyBinding::new("ctrl-q", Quit, None),
+        KeyBinding::new(shortcut::LAYOUT, ToggleLayout, Some(CONTEXT)),
         // Not handled here: it bubbles up to the app, which owns the settings window.
         KeyBinding::new("ctrl-,", OpenSettings, Some(CONTEXT)),
     ]);
@@ -200,6 +204,8 @@ enum EntryKind {
     ToggleFavorite,
     /// Moves a favorite up (-1) or down (1).
     MoveFavorite(isize),
+    /// Shows the open list as a grid, or the open grid as a list.
+    ToggleLayout,
 }
 
 impl Entry {
@@ -461,6 +467,10 @@ pub struct Launcher {
     pending_link: Option<PendingLink>,
     /// Ids of the items that open from links without asking.
     trusted_links: HashSet<String>,
+    /// The Layout setting: rows as tiles, in root search and every list.
+    grid_layout: bool,
+    /// The layout last set, which the background save writes.
+    saved_layout: Arc<AtomicBool>,
     /// A short message in the footer, for actions that keep the window open.
     toast: Option<SharedString>,
     /// Bumped on every toast, so an older toast's timer doesn't clear a newer one.
@@ -503,7 +513,10 @@ pub struct Launcher {
     screens: Vec<Screen>,
     /// Holds the keyboard in views without a search field (details, forms).
     focus: FocusHandle,
-    grid_scroll: UniformListScrollHandle,
+    /// The grid's lines, which differ in height (headings, tiles).
+    grid_list: ListState,
+    /// The lines `grid_list` was last measured for.
+    grid_shape: Vec<GridLine>,
     /// Ranks the rows of a list opened from root search.
     list_searcher: Searcher,
     /// Set to tell the live list's search under way that a newer one
@@ -617,6 +630,11 @@ impl Launcher {
             .and_then(|store| store.lock().ok()?.setting(links::TRUSTED_SETTING).ok()?)
             .map(|setting| links::parse_trusted(&setting).collect())
             .unwrap_or_default();
+        let grid_layout = store
+            .as_ref()
+            .and_then(|store| store.lock().ok()?.setting(views::LAYOUT_SETTING).ok()?)
+            .is_some_and(|setting| setting == "grid");
+        input.update(cx, |input, _| input.set_pass_horizontal_arrows(grid_layout));
         let favorites = store
             .as_ref()
             .and_then(|store| store.lock().ok()?.favorites().ok())
@@ -676,6 +694,8 @@ impl Launcher {
             confirming: None,
             pending_link: None,
             trusted_links,
+            grid_layout,
+            saved_layout: Arc::new(AtomicBool::new(grid_layout)),
             toast: None,
             toast_generation: 0,
             hud: None,
@@ -702,7 +722,8 @@ impl Launcher {
             editor: None,
             screens: Vec::new(),
             focus: cx.focus_handle(),
-            grid_scroll: UniformListScrollHandle::new(),
+            grid_list: ListState::new(0, ListAlignment::Top, px(TILE_OVERDRAW)),
+            grid_shape: Vec::new(),
             list_searcher: Searcher::default(),
             live_cancel: None,
             live_generation: 0,
@@ -1243,6 +1264,7 @@ impl Launcher {
         self.panel = None;
         self.confirming = None;
         self.scroll.reset();
+        self.grid_list.scroll_to(ListOffset::default());
         ms(started.elapsed())
     }
 
@@ -1382,6 +1404,7 @@ impl Launcher {
     /// Scrolls so the selected row shows, with its heading when it starts a
     /// section.
     fn reveal_selected(&mut self) {
+        self.reveal_selected_tile();
         let line = self.line_of(self.selected);
         let count = self.line_count();
         let heading = self
@@ -1401,6 +1424,14 @@ impl Launcher {
     /// Computed rows (calculator, web) change with the query, so they can't
     /// keep an alias, a hotkey or a ranking.
     fn actions_for(&self, row: &Row) -> Vec<Entry> {
+        let mut entries = self.item_actions(row);
+        if let Some(entry) = self.layout_entry() {
+            entries.push(entry);
+        }
+        entries
+    }
+
+    fn item_actions(&self, row: &Row) -> Vec<Entry> {
         let item = self.item(row);
         let mut entries: Vec<Entry> = item.actions.iter().map(Entry::of).collect();
         if let Some(id) = item
@@ -1524,6 +1555,8 @@ impl Launcher {
         self.search_live(cx);
         self.search_prefix(cx);
         let filter_ms = self.refilter(&query);
+        // After the file prefix, files show as rows beside their preview.
+        self.sync_grid_arrows(cx);
         self.load_site_icons(cx);
         self.stats.filter_ms = Some(filter_ms);
         self.stats.filter_samples.push(filter_ms);
@@ -1738,8 +1771,8 @@ impl Launcher {
             cx.notify();
             return;
         }
-        if self.in_grid() {
-            return self.grid_move(GRID_COLUMNS as isize, cx);
+        if self.in_grid(cx) {
+            return self.grid_step(true, cx);
         }
         if matches!(self.screens.last(), Some(Screen::Detail { .. })) {
             return self.detail_scroll(true, cx);
@@ -1756,8 +1789,8 @@ impl Launcher {
         if let Some(row) = self.panel {
             return self.select_panel_row(row.saturating_sub(1), cx);
         }
-        if self.in_grid() {
-            return self.grid_move(-(GRID_COLUMNS as isize), cx);
+        if self.in_grid(cx) {
+            return self.grid_step(false, cx);
         }
         if matches!(self.screens.last(), Some(Screen::Detail { .. })) {
             return self.detail_scroll(false, cx);
@@ -2029,6 +2062,7 @@ impl Launcher {
             EntryKind::OpenLink { always } => return self.open_pending_link(always, window, cx),
             EntryKind::ToggleFavorite => return self.toggle_favorite(&id, &title, cx),
             EntryKind::MoveFavorite(step) => return self.move_favorite(&id, step, cx),
+            EntryKind::ToggleLayout => return self.toggle_layout(window, cx),
             EntryKind::CopyDeeplink => {
                 return self.run_command(&Command::Copy(deeplink::for_item(&id)), cx);
             }
@@ -3858,6 +3892,8 @@ impl Render for Launcher {
 
         let results: AnyElement = if let Some(body) = self.render_screen_body(window, cx) {
             body
+        } else if !self.results.is_empty() && self.in_grid(cx) {
+            self.render_grid(cx)
         } else if self.results.is_empty() {
             div()
                 .flex_1()
@@ -4001,6 +4037,7 @@ impl Render for Launcher {
             .on_action(cx.listener(Self::toggle_actions))
             .on_action(cx.listener(Self::grid_left))
             .on_action(cx.listener(Self::grid_right))
+            .on_action(cx.listener(Self::toggle_layout_action))
             .on_action(cx.listener(Self::focus_next_field))
             .on_action(cx.listener(Self::focus_prev_field))
             .on_action(cx.listener(Self::next_choice))

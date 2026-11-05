@@ -76,6 +76,9 @@ pub struct LauncherState {
     pub search_engine: (SearchEngine, String),
     /// Commands that open from links without asking: item id and title.
     pub trusted_links: Vec<(String, String)>,
+    /// The Layout setting, which the launcher's Ctrl+Shift+G changes too:
+    /// every list as a grid.
+    pub grid_layout: bool,
 }
 
 /// Reads the launcher's current state; `None` while the launcher can't be
@@ -104,6 +107,8 @@ pub enum SettingsEvent {
     CompactFavoritesChanged(bool),
     /// Root search ranks often-used items first (or no longer does).
     RankByUsageChanged(bool),
+    /// Root search and every list show their rows as tiles (or as rows).
+    LayoutChanged(bool),
     /// Root search no longer lists these kinds before anything is typed.
     HiddenSectionsChanged(Vec<HomeSection>),
     /// The theme choice is now this one; apply it, redraw and save it.
@@ -179,6 +184,8 @@ pub struct Settings {
     shortcut_message: Option<(String, SharedString, bool)>,
     smooth_scrolling: bool,
     window_mode: WindowMode,
+    /// Rows as tiles: read from the launcher, which saves it.
+    grid_layout: bool,
     compact_favorites: bool,
     rank_by_usage: bool,
     hidden_sections: Vec<HomeSection>,
@@ -346,6 +353,7 @@ impl Settings {
             excluded_apps,
             search_engine: (_, engine_name),
             trusted_links,
+            grid_layout,
         } = launcher(cx).unwrap_or_default();
         let engine_name = if engine_name.is_empty() {
             search_engine.name()
@@ -365,6 +373,7 @@ impl Settings {
             shortcut_message: None,
             smooth_scrolling,
             window_mode,
+            grid_layout,
             compact_favorites,
             rank_by_usage,
             hidden_sections,
@@ -434,6 +443,7 @@ impl Settings {
         self.ignored_apps = state.ignored_apps;
         self.excluded_apps = state.excluded_apps;
         self.trusted_links = state.trusted_links;
+        self.grid_layout = state.grid_layout;
         let (engine, name) = state.search_engine;
         if engine != self.search_engine && self.custom_engine.is_none() {
             self.search_engine = engine;
@@ -808,6 +818,123 @@ impl Settings {
             cx.emit(SettingsEvent::WindowModeChanged(mode));
             cx.notify();
         }
+    }
+
+    fn set_grid_layout(&mut self, grid: bool, cx: &mut Context<Self>) {
+        if grid != self.grid_layout {
+            self.grid_layout = grid;
+            cx.emit(SettingsEvent::LayoutChanged(grid));
+            cx.notify();
+        }
+    }
+
+    /// List and Grid side by side, each a small picture of the results.
+    fn layout_control(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let choices = [false, true].map(|grid| {
+            let selected = grid == self.grid_layout;
+            let (id, label) = if grid {
+                ("layout-grid", "Grid")
+            } else {
+                ("layout-list", "List")
+            };
+            let bar = |width: f32| {
+                div()
+                    .w(px(width))
+                    .h(px(2.))
+                    .rounded_full()
+                    .bg(rgba(theme::p().surface_hover))
+            };
+            let picture = div()
+                .w(px(92.))
+                .h(px(50.))
+                .rounded(px(3.))
+                .border_1()
+                .border_color(rgba(theme::p().surface_border))
+                .bg(rgba(theme::p().panel))
+                .p(px(4.))
+                .flex()
+                .flex_col()
+                .gap(px(4.))
+                .when(!grid, |picture| {
+                    picture.children([40., 52., 34., 46.].map(|width| {
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(3.))
+                            .child(
+                                div()
+                                    .size(px(5.))
+                                    .rounded(px(1.))
+                                    .bg(rgba(theme::p().text_faint)),
+                            )
+                            .child(bar(width))
+                    }))
+                })
+                .when(grid, |picture| {
+                    picture.children((0..2).map(|_| {
+                        div().flex().justify_between().children((0..4).map(|_| {
+                            div()
+                                .w(px(17.))
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .gap(px(2.))
+                                .child(
+                                    div()
+                                        .size(px(10.))
+                                        .rounded(px(2.))
+                                        .bg(rgba(theme::p().text_faint)),
+                                )
+                                .child(bar(12.))
+                        }))
+                    }))
+                });
+            div()
+                .id(id)
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap_1p5()
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, _, cx| this.set_grid_layout(grid, cx)))
+                .child(
+                    div()
+                        .w(px(132.))
+                        .h(px(76.))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded(px(8.))
+                        .border_2()
+                        .border_color(rgba(if selected {
+                            theme::p().accent
+                        } else {
+                            theme::p().surface_border
+                        }))
+                        .bg(rgba(if selected {
+                            theme::p().accent_soft
+                        } else {
+                            theme::p().surface
+                        }))
+                        .hover(|style| style.bg(rgba(theme::p().surface_hover)))
+                        .child(picture),
+                )
+                .child(
+                    div()
+                        .px_2()
+                        .rounded(px(5.))
+                        .text_size(px(12.))
+                        .line_height(px(20.))
+                        .when(selected, |label| label.bg(rgba(theme::p().surface_hover)))
+                        .text_color(rgba(if selected {
+                            theme::p().text
+                        } else {
+                            theme::p().text_muted
+                        }))
+                        .child(label),
+                )
+        });
+        div().flex_none().flex().gap_3().children(choices)
     }
 
     /// The two window modes side by side, each a small picture of the window.
@@ -2698,6 +2825,15 @@ impl Settings {
                     )
                     .py_3()
                     .child(self.window_mode_control(cx)),
+                )
+                .child(divider())
+                .child(
+                    row(
+                        "Layout",
+                        "How root search and every list show results. Ctrl+Shift+G switches it in the launcher.",
+                    )
+                    .py_3()
+                    .child(self.layout_control(cx)),
                 )
                 .child(divider())
                 .child(

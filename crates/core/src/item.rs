@@ -180,6 +180,8 @@ pub mod shortcut {
     pub const FAVORITE: &str = "ctrl-shift-f";
     /// Pastes it another way: as plain text.
     pub const PASTE_PLAIN: &str = "ctrl-shift-v";
+    /// Shows a list as a grid, or a grid as a list.
+    pub const LAYOUT: &str = "ctrl-shift-g";
 }
 
 /// What an action does. A closed set of safe operations: providers describe
