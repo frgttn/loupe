@@ -28,11 +28,12 @@ use windows::{
         UI::{
             HiDpi::{GetDpiForMonitor, GetDpiForWindow, GetSystemMetricsForDpi, MDT_EFFECTIVE_DPI},
             WindowsAndMessaging::{
-                EnumWindows, GW_OWNER, GWL_EXSTYLE, GetCursorPos, GetWindow, GetWindowLongPtrW,
-                GetClientRect, GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, HWND_TOPMOST,
-                IsWindowVisible, SET_WINDOW_POS_FLAGS, SM_CXPADDEDBORDER, SM_CXSIZEFRAME, SW_HIDE,
-                SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
-                SetForegroundWindow, SetWindowPos, ShowWindow, WS_EX_TOOLWINDOW,
+                EnumWindows, GW_OWNER, GWL_EXSTYLE, GetClientRect, GetCursorPos, GetWindow,
+                GetWindowLongPtrW, GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId,
+                HWND_TOPMOST, IsWindowVisible, SET_WINDOW_POS_FLAGS, SM_CXPADDEDBORDER,
+                SM_CXSIZEFRAME, SW_HIDE, SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+                SWP_NOZORDER, SWP_SHOWWINDOW, SetForegroundWindow, SetWindowPos, ShowWindow,
+                WS_EX_TOOLWINDOW,
             },
         },
     },
@@ -121,8 +122,8 @@ pub fn round_corners(raw: isize) {
 
 /// Clips the window to the top `logical_height` of its client area (all of
 /// it with `None`). Clicks below go to the windows beneath, and Windows
-/// stops drawing its own rounded corners and border, which stop at an
-/// 8-pixel radius: a transparent window draws rounder ones itself, inside.
+/// stops drawing its own rounded corners and border: a transparent window
+/// draws them itself, inside.
 ///
 /// Sends WM_WINDOWPOSCHANGED, like a resize: call it from a spawned task or
 /// an update, not while GPUI draws.
@@ -130,8 +131,7 @@ pub fn clip_height(raw: isize, logical_height: Option<f32>) {
     unsafe {
         let hwnd = hwnd(raw);
         let (mut window, mut client) = (RECT::default(), RECT::default());
-        if GetWindowRect(hwnd, &mut window).is_err() || GetClientRect(hwnd, &mut client).is_err()
-        {
+        if GetWindowRect(hwnd, &mut window).is_err() || GetClientRect(hwnd, &mut client).is_err() {
             return;
         }
         let mut origin = POINT::default();
