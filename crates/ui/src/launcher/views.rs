@@ -913,7 +913,12 @@ impl Launcher {
                         let title = this.sections[section].1.clone();
                         super::render_heading(line, title)
                     }
+                    // The card is drawn one row tall and overflows into the
+                    // rows below (the list splits it across CARD_LINES rows);
+                    // here it is one line, so the line takes its full height
+                    // or the list lays the next lines over it.
                     Some(GridLine::Card(row)) => div()
+                        .h(px(super::CARD_LINES as f32 * super::ROW_HEIGHT))
                         .px_2()
                         .child(this.render_card(line, row, 0, cx))
                         .into_any_element(),
