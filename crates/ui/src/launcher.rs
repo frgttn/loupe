@@ -104,6 +104,16 @@ const ICON_REFRESH_SECS: i64 = 7 * 24 * 3600;
 pub const WINDOW_SIZE: (f32, f32) = (750., 475.);
 /// The collapsed window's height in compact mode: just the search row.
 const COMPACT_HEIGHT: f32 = 64.;
+/// The window's corner radius, drawn by the launcher over its transparent
+/// window; Windows' own corners stop at 8.
+const WINDOW_RADIUS: f32 = 14.;
+const FOOTER_HEIGHT: f32 = 40.;
+/// Room below the tallest height for the spring to overshoot into.
+const HEIGHT_HEADROOM: f32 = 28.;
+/// The body's height when it shows "No results" or an empty list.
+const EMPTY_BODY_HEIGHT: f32 = 120.;
+/// Kept below the last row of a list that fits, so it doesn't sit on the footer.
+const FIT_SLACK: f32 = 4.;
 /// How many favorites the collapsed window shows beside the search field,
 /// and Ctrl+1 to Ctrl+8 run.
 const COMPACT_FAVORITES: usize = 8;
@@ -419,6 +429,11 @@ fn tint() -> u32 {
     tint_for(theme::p().background, theme::current().appearance)
 }
 
+/// `color` (`0xRRGGBBAA`), at least nearly opaque.
+fn opaque_enough(color: u32) -> u32 {
+    (color & 0xffffff00) | (color & 0xff).max(0xf0)
+}
+
 /// [`tint`] for a theme with this background and appearance.
 fn tint_for(background: u32, appearance: theme::Appearance) -> u32 {
     const MAX_BRIGHTNESS: f32 = 0.24;
@@ -538,8 +553,15 @@ pub struct Launcher {
     window_mode: WindowMode,
     /// ↓ showed root search's results in compact mode; typing clears it.
     revealed: bool,
-    /// The window currently has the collapsed (search field only) height.
+    /// The window currently has the collapsed (search field only) layout.
     window_collapsed: bool,
+    /// How much of the window shows, eased towards what its content needs.
+    height: HeightSpring,
+    /// The height the window was last clipped to (see [`win::clip_height`]);
+    /// negative when it isn't clipped to a part.
+    clipped_height: f32,
+    /// A task is on its way to clip the window to `height`.
+    clip_pending: bool,
     /// Stays up when it loses focus. For the self-test, which runs beside
     /// the window that has it.
     pinned: bool,
@@ -582,9 +604,7 @@ impl Launcher {
             Ok(RawWindowHandle::Win32(handle)) => handle.hwnd.get(),
             other => panic!("expected a Win32 window handle, got {other:?}"),
         };
-        win::round_corners(hwnd);
         theme::set_system(theme::appearance_of(cx.window_appearance()));
-        win::set_border_color(hwnd, theme::p().window_border);
 
         let input = cx.new(|cx| TextInput::new(SEARCH_PLACEHOLDER, cx));
         let panel_input = cx.new(|cx| TextInput::new("Search for actions…", cx));
@@ -740,6 +760,9 @@ impl Launcher {
             window_mode: WindowMode::default(),
             revealed: false,
             window_collapsed: false,
+            height: HeightSpring::default(),
+            clipped_height: -1.,
+            clip_pending: false,
             pinned: false,
             previous_window: 0,
             selection_copy: true,
@@ -1123,30 +1146,88 @@ impl Launcher {
             && self.input.read(cx).text().is_empty()
     }
 
-    /// Grows or shrinks the window when [`Self::collapsed`] changes; runs
-    /// after every notify.
+    /// Collapses or expands the layout when [`Self::collapsed`] changes;
+    /// runs after every notify. The height follows as it's drawn.
     fn sync_window_height(&mut self, cx: &mut Context<Self>) {
         let collapsed = self.collapsed(cx);
         if !self.visible || self.hud.is_some() || collapsed == self.window_collapsed {
             return;
         }
         self.window_collapsed = collapsed;
-        self.resize_window(cx);
         cx.notify();
     }
 
-    /// Gives the window the size `window_collapsed` says, from a task of its
-    /// own (see [`win::resize`]). Read when it runs: the HUD may have taken
-    /// the window meanwhile, and keeps its own size.
+    /// The height the window's content needs: the search row alone when
+    /// collapsed, a list's rows when they fit, else the whole window.
+    fn target_height(&self, cx: &App) -> f32 {
+        let max = WINDOW_SIZE.1;
+        if self.window_collapsed {
+            return COMPACT_HEIGHT;
+        }
+        let fits = self.panel.is_none()
+            && self.editor.is_none()
+            && matches!(self.screens.last(), None | Some(Screen::List { .. }))
+            && !self.in_grid(cx)
+            && !self.shows_previews(cx);
+        if !fits {
+            return max;
+        }
+        let body = if self.results.is_empty() {
+            EMPTY_BODY_HEIGHT
+        } else {
+            let trim = if self.sections.first().is_some_and(|(start, _)| *start == 0) {
+                HEADING_TRIM
+            } else {
+                0.
+            };
+            self.line_count() as f32 * ROW_HEIGHT + 2. * LIST_PADDING - trim + FIT_SLACK
+        };
+        // The search row, its hairline, the body and the footer.
+        (COMPACT_HEIGHT + 1. + body + FOOTER_HEIGHT).min(max)
+    }
+
+    /// How much of the window shows now, for the self-test.
+    pub fn visible_height(&self) -> f32 {
+        self.height.value
+    }
+
+    /// The window is always as tall as it can get, plus room to overshoot;
+    /// it shows the top `height` of itself.
+    fn full_client_height() -> f32 {
+        WINDOW_SIZE.1 + HEIGHT_HEADROOM
+    }
+
+    /// Clips the window to `height` from a task of its own: it can't be done
+    /// while GPUI draws. Read when it runs: the HUD may have taken the window.
+    fn clip_window(&mut self, cx: &mut Context<Self>) {
+        if self.clip_pending {
+            return;
+        }
+        self.clip_pending = true;
+        cx.spawn(async move |this, cx| {
+            let target = this.update(cx, |this, _| {
+                this.clip_pending = false;
+                (this.visible && this.hud.is_none()).then(|| {
+                    let height = this.height.value.min(Self::full_client_height());
+                    this.clipped_height = height;
+                    (this.hwnd, height)
+                })
+            });
+            if let Ok(Some((hwnd, height))) = target {
+                win::clip_height(hwnd, Some(height));
+            }
+        })
+        .detach();
+    }
+
+    /// Gives the window its full size again (the HUD shrinks it), from a
+    /// task of its own (see [`win::resize`]). Read when it runs: the HUD may
+    /// have taken the window meanwhile, and keeps its own size.
     fn resize_window(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let target = this.read_with(cx, |this, _| {
-                this.hud
-                    .is_none()
-                    .then_some((this.hwnd, this.window_collapsed))
-            });
-            if let Ok(Some((hwnd, collapsed))) = target {
-                win::resize(hwnd, WINDOW_SIZE, collapsed.then_some(COMPACT_HEIGHT));
+            let target = this.read_with(cx, |this, _| this.hud.is_none().then_some(this.hwnd));
+            if let Ok(Some(hwnd)) = target {
+                win::resize(hwnd, WINDOW_SIZE, Some(Self::full_client_height()));
             }
         })
         .detach();
@@ -1674,10 +1755,8 @@ impl Launcher {
         self.previous_window
     }
 
-    /// Redraws with the current theme: the window's outline is Windows' to
-    /// draw, so it is set again; everything else is read as it's drawn.
+    /// Redraws with the current theme, which is read as it's drawn.
     pub fn theme_changed(&mut self, cx: &mut Context<Self>) {
-        win::set_border_color(self.hwnd, theme::p().window_border);
         cx.notify();
     }
 
@@ -1724,12 +1803,16 @@ impl Launcher {
         self.stats.filter_ms = Some(self.refilter(""));
         self.revealed = false;
         self.window_collapsed = self.collapsed(cx);
+        // Opens at the height its content needs; only later changes ease.
+        self.height.snap(self.target_height(cx));
+        self.clipped_height = self.height.value;
+        win::clip_height(self.hwnd, Some(self.height.value));
         // Explicit size: with `show: false` GPUI defers its own placement to
         // `activate()`, which we bypass, so the window would keep CW_USEDEFAULT.
         win::show_on_active_monitor(
             self.hwnd,
             Some(WINDOW_SIZE),
-            self.window_collapsed.then_some(COMPACT_HEIGHT),
+            Some(Self::full_client_height()),
         );
         self.visible = true;
         window.focus(&self.input.focus_handle(cx));
@@ -2984,6 +3067,8 @@ impl Launcher {
         self.hud_generation += 1;
         let generation = self.hud_generation;
         win::show_without_focus_near_bottom(self.hwnd, HUD_SIZE);
+        win::clip_height(self.hwnd, None);
+        self.clipped_height = -1.;
         cx.notify();
 
         cx.spawn(async move |this, cx| {
@@ -3802,7 +3887,8 @@ impl Launcher {
 
     fn render_footer(&self) -> impl IntoElement {
         div()
-            .h(px(40.))
+            .flex_none()
+            .h(px(FOOTER_HEIGHT))
             .px(px(16.))
             .flex()
             .items_center()
@@ -3874,10 +3960,12 @@ impl Render for Launcher {
                 .items_center()
                 .justify_center()
                 .px_4()
-                .bg(rgba(theme::p().hud))
+                // Over a transparent window now, not a blur: dense enough to
+                // read without one.
+                .bg(rgba(opaque_enough(theme::p().hud)))
                 .border_1()
                 .border_color(rgba(theme::p().surface_border))
-                .rounded(px(8.))
+                .rounded(px(WINDOW_RADIUS))
                 .text_color(rgba(theme::p().text))
                 .text_size(px(14.))
                 .line_height(px(20.))
@@ -3887,6 +3975,16 @@ impl Render for Launcher {
         }
         self.drop_stale_images(window);
         let collapsed = self.window_collapsed;
+        let target = self.target_height(cx);
+        if self.height.step(target, Instant::now()) {
+            window.request_animation_frame();
+        }
+        let height = self.height.value.min(Self::full_client_height());
+        if self.visible && (height - self.clipped_height).abs() >= 0.5 {
+            self.clip_window(cx);
+        }
+        // Collapsing keeps the rows while the window shrinks over them.
+        let show_body = !collapsed || height > COMPACT_HEIGHT + 1.;
         let favorites =
             (collapsed && self.compact_favorites).then(|| self.render_compact_favorites(cx));
         // Both run, so neither waits on the other's frame.
@@ -4052,14 +4150,19 @@ impl Render for Launcher {
             .on_action(cx.listener(Self::dismiss))
             .on_key_down(cx.listener(Self::run_shortcut))
             .track_focus(&self.focus)
-            .size_full()
+            .w_full()
+            .h(px(height))
+            .overflow_hidden()
             .flex()
             .flex_col()
-            .bg(rgba(tint()))
+            // The window is transparent: this is all there is behind the rows.
+            .bg(rgba(tint() | 0xff))
+            .rounded(px(WINDOW_RADIUS))
             .text_color(rgba(theme::p().text))
             .text_size(px(14.))
             .child(
                 div()
+                    .flex_none()
                     .px(px(20.))
                     .py(px(18.))
                     .flex()
@@ -4154,8 +4257,8 @@ impl Render for Launcher {
                             .children(favorites),
                     }),
             )
-            .when(!collapsed, |root| {
-                root.child(div().h(px(1.)).bg(rgba(theme::p().hairline)))
+            .when(show_body, |root| {
+                root.child(div().flex_none().h(px(1.)).bg(rgba(theme::p().hairline)))
                     .child(results)
                     .child(self.render_footer())
             })
@@ -4165,6 +4268,16 @@ impl Render for Launcher {
             .when_some(self.editor.as_ref(), |root, editor| {
                 root.child(self.render_editor(editor))
             })
+            // The outline Windows would draw, which it leaves out for a
+            // clipped window, along the rounder corners.
+            .child(
+                div()
+                    .absolute()
+                    .size_full()
+                    .rounded(px(WINDOW_RADIUS))
+                    .border_1()
+                    .border_color(rgba((theme::p().window_border << 8) | 0xff)),
+            )
             // Last child, so it paints after everything else in the frame.
             .child(
                 canvas(|_, _, _| {}, move |_, _, _, _| paint.borrow_mut().painted())
@@ -4627,5 +4740,84 @@ mod tests {
         assert_eq!(caps("Ctrl+Alt+K"), "Ctrl Alt K");
         assert_eq!(caps("Win+F12"), "Win F12");
         assert_eq!(caps("Ctrl++"), "Ctrl =");
+    }
+}
+
+/// The launcher's visible height, eased towards where its content wants it
+/// along a slightly underdamped spring: it overshoots a little and settles.
+#[derive(Default)]
+struct HeightSpring {
+    value: f32,
+    velocity: f32,
+    target: f32,
+    /// When it last moved; `None` at rest.
+    last: Option<Instant>,
+}
+
+impl HeightSpring {
+    /// ω² for ω ≈ 22 rad/s: settles in about a quarter of a second.
+    const STIFFNESS: f32 = 480.;
+    /// 2ζω with ζ ≈ 0.7: overshoots by about 4%.
+    const DAMPING: f32 = 31.;
+
+    fn snap(&mut self, to: f32) {
+        *self = Self {
+            value: to,
+            velocity: 0.,
+            target: to,
+            last: None,
+        };
+    }
+
+    /// Moves towards `target` by the time since the last step. Returns
+    /// whether it is still moving.
+    fn step(&mut self, target: f32, now: Instant) -> bool {
+        if target != self.target {
+            self.target = target;
+            self.last.get_or_insert(now);
+        }
+        let Some(last) = self.last else {
+            return false;
+        };
+        // A long frame (a hitch, a hidden window) isn't one big jump.
+        let mut left = now.saturating_duration_since(last).as_secs_f32().min(0.05);
+        self.last = Some(now);
+        while left > 0. {
+            let dt = left.min(1. / 240.);
+            left -= dt;
+            let accel =
+                Self::STIFFNESS * (self.target - self.value) - Self::DAMPING * self.velocity;
+            self.velocity += accel * dt;
+            self.value += self.velocity * dt;
+        }
+        if (self.target - self.value).abs() < 0.3 && self.velocity.abs() < 4. {
+            self.snap(self.target);
+            return false;
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+mod height_spring_tests {
+    use super::*;
+
+    #[test]
+    fn overshoots_a_little_then_settles() {
+        let mut spring = HeightSpring::default();
+        spring.snap(64.);
+        let start = Instant::now();
+        let mut now = start;
+        let mut peak: f32 = 0.;
+        let mut frames = 0;
+        while spring.step(475., now) {
+            now += Duration::from_millis(8);
+            peak = peak.max(spring.value);
+            frames += 1;
+            assert!(frames < 200, "never settled");
+        }
+        assert_eq!(spring.value, 475.);
+        assert!(peak > 475. && peak < 475. + HEIGHT_HEADROOM, "peak {peak}");
+        assert!(now - start < Duration::from_millis(700), "{:?}", now - start);
     }
 }

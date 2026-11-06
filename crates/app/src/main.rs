@@ -334,7 +334,9 @@ fn main() {
                     is_movable: false,
                     is_resizable: false,
                     is_minimizable: false,
-                    window_background: WindowBackgroundAppearance::Blurred,
+                    // The launcher draws its own background, with rounder
+                    // corners than Windows', and only as tall as its content.
+                    window_background: WindowBackgroundAppearance::Transparent,
                     app_id: Some("spotlight".into()),
                     ..Default::default()
                 },

@@ -388,7 +388,7 @@ async fn compact_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -
     let executor = cx.background_executor().clone();
     let height = |cx: &mut AsyncApp| {
         window
-            .update(cx, |_, window, _| f32::from(window.viewport_size().height))
+            .update(cx, |launcher, _, _| launcher.visible_height())
             .unwrap_or_default()
     };
     // Set apart from showing, as in Settings: the hidden window takes the

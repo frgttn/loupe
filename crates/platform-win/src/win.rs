@@ -16,7 +16,10 @@ use windows::{
                 DWMWA_BORDER_COLOR, DWMWA_CLOAKED, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
                 DwmGetWindowAttribute, DwmSetWindowAttribute,
             },
-            Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint},
+            Gdi::{
+                ClientToScreen, CreateRectRgn, DeleteObject, GetMonitorInfoW,
+                MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint, SetWindowRgn,
+            },
         },
         System::{
             Console::{ATTACH_PARENT_PROCESS, AttachConsole},
@@ -26,7 +29,7 @@ use windows::{
             HiDpi::{GetDpiForMonitor, GetDpiForWindow, GetSystemMetricsForDpi, MDT_EFFECTIVE_DPI},
             WindowsAndMessaging::{
                 EnumWindows, GW_OWNER, GWL_EXSTYLE, GetCursorPos, GetWindow, GetWindowLongPtrW,
-                GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, HWND_TOPMOST,
+                GetClientRect, GetWindowRect, GetWindowTextLengthW, GetWindowThreadProcessId, HWND_TOPMOST,
                 IsWindowVisible, SET_WINDOW_POS_FLAGS, SM_CXPADDEDBORDER, SM_CXSIZEFRAME, SW_HIDE,
                 SW_SHOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW,
                 SetForegroundWindow, SetWindowPos, ShowWindow, WS_EX_TOOLWINDOW,
@@ -113,6 +116,36 @@ pub fn round_corners(raw: isize) {
             &preference as *const _ as *const c_void,
             size_of::<i32>() as u32,
         );
+    }
+}
+
+/// Clips the window to the top `logical_height` of its client area (all of
+/// it with `None`). Clicks below go to the windows beneath, and Windows
+/// stops drawing its own rounded corners and border, which stop at an
+/// 8-pixel radius: a transparent window draws rounder ones itself, inside.
+///
+/// Sends WM_WINDOWPOSCHANGED, like a resize: call it from a spawned task or
+/// an update, not while GPUI draws.
+pub fn clip_height(raw: isize, logical_height: Option<f32>) {
+    unsafe {
+        let hwnd = hwnd(raw);
+        let (mut window, mut client) = (RECT::default(), RECT::default());
+        if GetWindowRect(hwnd, &mut window).is_err() || GetClientRect(hwnd, &mut client).is_err()
+        {
+            return;
+        }
+        let mut origin = POINT::default();
+        let _ = ClientToScreen(hwnd, &mut origin);
+        let scale = GetDpiForWindow(hwnd).max(96) as f32 / 96.;
+        let (left, top) = (origin.x - window.left, origin.y - window.top);
+        let height = logical_height.map_or(client.bottom, |height| {
+            ((height * scale).ceil() as i32).clamp(1, client.bottom)
+        });
+        let region = CreateRectRgn(left, top, left + client.right, top + height);
+        // On success the region is the system's.
+        if SetWindowRgn(hwnd, Some(region), true) == 0 {
+            let _ = DeleteObject(region.into());
+        }
     }
 }
 
