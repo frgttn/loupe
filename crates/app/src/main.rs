@@ -74,6 +74,10 @@ const RANK_BY_USAGE_SETTING: &str = "rank_by_usage";
 /// `settings` key: the root search sections hidden before anything is
 /// typed, `HomeSection`'s setting forms comma-separated; missing means none.
 const HIDDEN_SECTIONS_SETTING: &str = "hidden_home_sections";
+/// `settings` key: the order of root search's sections before anything is
+/// typed, `HomeSection`'s setting forms comma-separated; missing (or any
+/// section missing from it) means the default order.
+const HOME_ORDER_SETTING: &str = "home_section_order";
 /// `settings` key: `SearchEngine`'s setting form; missing means Google.
 const SEARCH_ENGINE_SETTING: &str = "search_engine";
 /// `settings` key: ids of the turned-off search providers, comma-separated;
@@ -105,6 +109,7 @@ struct AppState {
     compact_favorites: Cell<bool>,
     rank_by_usage: Cell<bool>,
     hidden_sections: RefCell<Vec<HomeSection>>,
+    home_order: RefCell<Vec<HomeSection>>,
     search_engine: RefCell<SearchEngine>,
     /// The web provider, to switch its search engine.
     web: Arc<Web>,
@@ -195,6 +200,12 @@ fn main() {
                 .collect()
         })
         .unwrap_or_default();
+    let home_order = HomeSection::complete_order(
+        setting(HOME_ORDER_SETTING)
+            .unwrap_or_default()
+            .split(',')
+            .filter_map(|name| HomeSection::from_setting(name.trim())),
+    );
     // Before any window opens, which then start out in the right colours.
     // `SPOTLIGHT_THEME=light|dark|system` overrides the saved mode, for
     // screenshots.
@@ -334,6 +345,8 @@ fn main() {
                     is_movable: false,
                     is_resizable: false,
                     is_minimizable: false,
+                    // A blurred backdrop under the launcher's tint. The
+                    // window is sized to its content, so Windows rounds it.
                     window_background: WindowBackgroundAppearance::Blurred,
                     app_id: Some("spotlight".into()),
                     ..Default::default()
@@ -361,6 +374,7 @@ fn main() {
                 launcher.set_compact_favorites(compact_favorites, cx);
                 launcher.set_rank_by_usage(rank_by_usage, cx);
                 launcher.set_hidden_sections(hidden_sections.clone(), cx);
+                launcher.set_home_order(home_order.clone(), cx);
                 launcher.set_selection_copy(selection_copy);
                 launcher.set_snippet_expansion(snippet_expansion);
                 launcher.set_file_prefix(file_search.prefix.clone());
@@ -413,6 +427,7 @@ fn main() {
             compact_favorites: Cell::new(compact_favorites),
             rank_by_usage: Cell::new(rank_by_usage),
             hidden_sections: RefCell::new(hidden_sections),
+            home_order: RefCell::new(home_order),
             search_engine: RefCell::new(search_engine.clone()),
             web,
             clipboard: clipboard_history,
@@ -634,6 +649,7 @@ fn open_settings(state: &Rc<AppState>, cx: &mut App) {
                 view_state.compact_favorites.get(),
                 view_state.rank_by_usage.get(),
                 view_state.hidden_sections.borrow().clone(),
+                view_state.home_order.borrow().clone(),
                 view_state.search_engine.borrow().clone(),
                 view_state.clipboard.retention(),
                 view_state.win_v.get(),
@@ -751,6 +767,21 @@ fn settings_changed(state: &AppState, event: &SettingsEvent, cx: &mut App) {
                 .collect::<Vec<_>>()
                 .join(",");
             save_setting(state, HIDDEN_SECTIONS_SETTING, text, cx);
+        }
+        SettingsEvent::HomeOrderChanged(order) => {
+            *state.home_order.borrow_mut() = order.clone();
+            state
+                .launcher
+                .update(cx, |launcher, _, cx| {
+                    launcher.set_home_order(order.clone(), cx)
+                })
+                .ok();
+            let text = order
+                .iter()
+                .map(|section| section.to_setting())
+                .collect::<Vec<_>>()
+                .join(",");
+            save_setting(state, HOME_ORDER_SETTING, text, cx);
         }
         SettingsEvent::ThemeChanged(mode) => {
             theme::set_mode(*mode);

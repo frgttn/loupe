@@ -110,6 +110,8 @@ pub enum SettingsEvent {
     LayoutChanged(bool),
     /// Root search no longer lists these kinds before anything is typed.
     HiddenSectionsChanged(Vec<HomeSection>),
+    /// Root search lists its sections in this order before anything is typed.
+    HomeOrderChanged(Vec<HomeSection>),
     /// The theme mode is now this one; apply it, redraw and save it.
     ThemeChanged(theme::Mode),
     /// The web search engine is now this one; switch to it and save it.
@@ -188,6 +190,8 @@ pub struct Settings {
     compact_favorites: bool,
     rank_by_usage: bool,
     hidden_sections: Vec<HomeSection>,
+    /// Every `HomeSection`, in the order root search lists them.
+    home_order: Vec<HomeSection>,
     search_engine: SearchEngine,
     /// The engine's name: a quicklink engine's is only known to the launcher.
     engine_name: String,
@@ -260,6 +264,7 @@ impl Settings {
         compact_favorites: bool,
         rank_by_usage: bool,
         hidden_sections: Vec<HomeSection>,
+        home_order: Vec<HomeSection>,
         search_engine: SearchEngine,
         clipboard_retention: Retention,
         win_v: bool,
@@ -372,6 +377,7 @@ impl Settings {
             compact_favorites,
             rank_by_usage,
             hidden_sections,
+            home_order: HomeSection::complete_order(home_order),
             custom_engine: match &search_engine {
                 SearchEngine::Custom(template) => Some(custom_engine_input(template, cx)),
                 SearchEngine::Preset(_) | SearchEngine::Quicklink(_) => None,
@@ -403,7 +409,13 @@ impl Settings {
             version,
             update_status,
             data_path,
-            history: vec![Page::General],
+            // `SPOTLIGHT_SETTINGS_PAGE=<key>` opens on that page, for screenshots.
+            history: vec![
+                std::env::var("SPOTLIGHT_SETTINGS_PAGE")
+                    .ok()
+                    .and_then(|key| PAGES.into_iter().find(|page| page.key() == key))
+                    .unwrap_or(Page::General),
+            ],
             history_ix: 0,
             search,
             nav_scroll: Scroller::new(ScrollHandle::new(), smooth_scrolling),
@@ -802,6 +814,32 @@ impl Settings {
         cx.emit(SettingsEvent::HiddenSectionsChanged(
             self.hidden_sections.clone(),
         ));
+        cx.notify();
+    }
+
+    /// Moves `section` one place up (`-1`) or down (`1`) in root search.
+    fn move_section(&mut self, section: HomeSection, by: isize, cx: &mut Context<Self>) {
+        let Some(from) = self.home_order.iter().position(|s| *s == section) else {
+            return;
+        };
+        let Some(to) = from
+            .checked_add_signed(by)
+            .filter(|to| *to < self.home_order.len())
+        else {
+            return;
+        };
+        self.home_order.swap(from, to);
+        cx.emit(SettingsEvent::HomeOrderChanged(self.home_order.clone()));
+        cx.notify();
+    }
+
+    fn reset_home(&mut self, cx: &mut Context<Self>) {
+        self.home_order = HomeSection::ALL.to_vec();
+        cx.emit(SettingsEvent::HomeOrderChanged(self.home_order.clone()));
+        if !self.hidden_sections.is_empty() {
+            self.hidden_sections.clear();
+            cx.emit(SettingsEvent::HiddenSectionsChanged(Vec::new()));
+        }
         cx.notify();
     }
 
@@ -2189,6 +2227,8 @@ impl Focusable for Settings {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
     General,
+    /// What root search shows before anything is typed.
+    Home,
     Extensions,
     Shortcuts,
     About,
@@ -2207,8 +2247,9 @@ const OVERSCAN_ROWS: usize = 8;
 const TITLE_FADE: f32 = 16.;
 
 /// The pages above the extensions in the sidebar.
-const PAGES: [Page; 4] = [
+const PAGES: [Page; 5] = [
     Page::General,
+    Page::Home,
     Page::Extensions,
     Page::Shortcuts,
     Page::About,
@@ -2231,6 +2272,7 @@ impl Page {
     fn icon(self) -> (char, u32) {
         match self {
             Page::General => ('\u{E713}', GRAY),
+            Page::Home => ('\u{E80F}', BLUE),
             Page::Extensions => ('\u{EA86}', INDIGO),
             Page::Shortcuts => ('\u{E765}', GRAY),
             Page::About => ('\u{E946}', GRAY),
@@ -2259,13 +2301,14 @@ impl Page {
         match self {
             Page::Extension(_) => Some(120.),
             Page::About => Some(145.),
-            Page::General | Page::Extensions | Page::Shortcuts => None,
+            Page::General | Page::Home | Page::Extensions | Page::Shortcuts => None,
         }
     }
 
     fn key(self) -> &'static str {
         match self {
             Page::General => "general",
+            Page::Home => "home",
             Page::Extensions => "extensions",
             Page::Shortcuts => "shortcuts",
             Page::About => "about",
@@ -2284,6 +2327,17 @@ impl Page {
                 "Search",
                 "Rank by usage",
                 "Frecency",
+            ],
+            Page::Home => &[
+                "Home screen",
+                "Before you type",
+                "Sections",
+                "Order",
+                "Favorites",
+                "Suggestions",
+                "Commands",
+                "Applications",
+                "Favorites in compact mode",
             ],
             Page::Extensions => &["Search sources", "Enabled"],
             Page::Shortcuts => &["Aliases", "Hotkeys"],
@@ -2322,6 +2376,7 @@ impl Settings {
     fn page_title(&self, page: Page) -> &'static str {
         match page {
             Page::General => "General",
+            Page::Home => "Home Screen",
             Page::Extensions => "Extensions",
             Page::Shortcuts => "Shortcuts",
             Page::About => "About",
@@ -2359,7 +2414,7 @@ impl Settings {
                             .iter()
                             .any(|item| item.provider == id && item_matches(item, query))
                 }
-                Page::General | Page::About => false,
+                Page::General | Page::Home | Page::About => false,
             }
     }
 
@@ -2691,18 +2746,6 @@ impl Settings {
                 .child(divider())
                 .child(
                     row(
-                        "Favorites in Compact Mode",
-                        "Show favorites beside the search field; Ctrl+1 to Ctrl+8 open them.",
-                    )
-                    .child(switch(
-                        "compact-favorites",
-                        self.compact_favorites,
-                        cx.listener(|this, _, _, cx| this.toggle_compact_favorites(cx)),
-                    )),
-                )
-                .child(divider())
-                .child(
-                    row(
                         "Smooth Scrolling",
                         "Animate the result list when you scroll or move the selection.",
                     )
@@ -2727,20 +2770,77 @@ impl Settings {
                     )),
                 )
                 .into_any_element(),
-            section_title("Before You Type"),
-            hint("Root search lists these below Favorites and Suggestions. Hidden ones are still found when you type."),
-            card()
-                .children(HomeSection::ALL.into_iter().enumerate().map(|(ix, section)| {
-                    div()
-                        .when(ix > 0, |row| row.child(divider()))
-                        .child(
-                            row(section.title(), section_description(section)).child(switch(
+        ]
+    }
+
+    /// What root search shows before anything is typed: its sections, in
+    /// order, each with a switch.
+    fn home_page(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let count = self.home_order.len();
+        let rows = self.home_order.iter().enumerate().map(|(ix, &section)| {
+            let shown = !self.hidden_sections.contains(&section);
+            let can_up = ix > 0;
+            let can_down = ix + 1 < count;
+            div().when(ix > 0, |row| row.child(divider())).child(
+                row(section.title(), section_description(section))
+                    .when(!shown, |row| row.opacity(0.6))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(icon_button(("home-up", ix), '\u{E70E}', can_up).when(
+                                can_up,
+                                |button| {
+                                    button.on_click(cx.listener(move |this, _, _, cx| {
+                                        this.move_section(section, -1, cx)
+                                    }))
+                                },
+                            ))
+                            .child(icon_button(("home-down", ix), '\u{E70D}', can_down).when(
+                                can_down,
+                                |button| {
+                                    button.on_click(cx.listener(move |this, _, _, cx| {
+                                        this.move_section(section, 1, cx)
+                                    }))
+                                },
+                            ))
+                            .child(div().w(px(8.)))
+                            .child(switch(
                                 ("home-section", ix),
-                                !self.hidden_sections.contains(&section),
+                                shown,
                                 cx.listener(move |this, _, _, cx| this.toggle_section(section, cx)),
                             )),
-                        )
-                }))
+                    ),
+            )
+        });
+        vec![
+            section_title("Sections"),
+            hint(
+                "What the launcher lists before you type, top to bottom. Hidden sections are still found when you type.",
+            ),
+            card().children(rows).into_any_element(),
+            div()
+                .flex()
+                .justify_end()
+                .child(
+                    button("home-reset", "Reset to Default")
+                        .on_click(cx.listener(|this, _, _, cx| this.reset_home(cx))),
+                )
+                .into_any_element(),
+            section_title("Compact Mode"),
+            card()
+                .child(
+                    row(
+                        "Favorites in Compact Mode",
+                        "Show favorites beside the search field; Ctrl+1 to Ctrl+8 open them.",
+                    )
+                    .child(switch(
+                        "compact-favorites",
+                        self.compact_favorites,
+                        cx.listener(|this, _, _, cx| this.toggle_compact_favorites(cx)),
+                    )),
+                )
                 .into_any_element(),
         ]
     }
@@ -3196,6 +3296,7 @@ impl Render for Settings {
         }
         let body = match page {
             Page::General => self.general_page(cx),
+            Page::Home => self.home_page(cx),
             Page::Extensions => self.extensions_page(cx),
             Page::Shortcuts => self.shortcuts_page(cx),
             Page::About => self.about_page(cx),
@@ -3364,6 +3465,8 @@ fn button(id: &'static str, label: &'static str) -> Stateful<gpui::Div> {
 /// What a root search section lists, under its switch.
 fn section_description(section: HomeSection) -> &'static str {
     match section {
+        HomeSection::Favorites => "Items you pinned as favorites.",
+        HomeSection::Suggestions => "What you open most lately. Needs Rank by Usage (General).",
         HomeSection::Commands => "Built-in commands: Clipboard History, Run, Search Files…",
         HomeSection::Applications => "Installed apps.",
         HomeSection::Quicklinks => "Your saved quicklinks.",
@@ -3465,7 +3568,7 @@ fn badge(glyph: char, color: u32, size: f32) -> impl IntoElement {
 }
 
 /// A small square button with a glyph; a disabled one is dimmed and inert.
-fn icon_button(id: &'static str, glyph: char, enabled: bool) -> Stateful<gpui::Div> {
+fn icon_button(id: impl Into<ElementId>, glyph: char, enabled: bool) -> Stateful<gpui::Div> {
     div()
         .id(id)
         .flex_none()

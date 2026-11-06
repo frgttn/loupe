@@ -85,6 +85,8 @@ actions!(
 
 const CONTEXT: &str = "Launcher";
 const ROW_HEIGHT: f32 = 40.;
+/// Space between the highlights of neighbouring rows, within `ROW_HEIGHT`.
+const ROW_GAP: f32 = 4.;
 /// Lines of the list an answer card ([`SearchItem::card`]) takes.
 const CARD_LINES: usize = 3;
 /// Space above the first and below the last row.
@@ -104,6 +106,16 @@ const ICON_REFRESH_SECS: i64 = 7 * 24 * 3600;
 pub const WINDOW_SIZE: (f32, f32) = (750., 475.);
 /// The collapsed window's height in compact mode: just the search row.
 const COMPACT_HEIGHT: f32 = 64.;
+/// The window's corner radius, drawn by the launcher over its transparent
+/// window: Windows 11's own, which it leaves out for a clipped window.
+const WINDOW_RADIUS: f32 = 8.;
+const FOOTER_HEIGHT: f32 = 40.;
+/// Room below the tallest height for the spring to overshoot into.
+const HEIGHT_HEADROOM: f32 = 28.;
+/// The body's height when it shows "No results" or an empty list.
+const EMPTY_BODY_HEIGHT: f32 = 120.;
+/// Kept below the last row of a list that fits, so it doesn't sit on the footer.
+const FIT_SLACK: f32 = 4.;
 /// How many favorites the collapsed window shows beside the search field,
 /// and Ctrl+1 to Ctrl+8 run.
 const COMPACT_FAVORITES: usize = 8;
@@ -335,10 +347,13 @@ impl WindowMode {
     }
 }
 
-/// What root search lists below its suggestions before anything is typed,
-/// each kind under its own heading; any of them can be hidden in Settings.
+/// The blocks root search lists before anything is typed, each under its
+/// own heading: favorites, suggestions, then the catalog by kind. Their
+/// order can be changed and any of them hidden in Settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HomeSection {
+    Favorites,
+    Suggestions,
     Commands,
     Applications,
     Quicklinks,
@@ -349,10 +364,12 @@ pub enum HomeSection {
 }
 
 impl HomeSection {
-    /// In the order root search lists them.
-    pub const ALL: [Self; 7] = [
-        Self::Commands,
+    /// In the order root search lists them unless changed.
+    pub const ALL: [Self; 9] = [
+        Self::Favorites,
+        Self::Suggestions,
         Self::Applications,
+        Self::Commands,
         Self::Quicklinks,
         Self::Snippets,
         Self::Games,
@@ -360,8 +377,22 @@ impl HomeSection {
         Self::ControlPanel,
     ];
 
+    /// `order` with anything unknown dropped, duplicates removed and the
+    /// sections it leaves out added at the end, in their default order.
+    pub fn complete_order(order: impl IntoIterator<Item = Self>) -> Vec<Self> {
+        let mut out: Vec<Self> = Vec::new();
+        for section in order.into_iter().chain(Self::ALL) {
+            if !out.contains(&section) {
+                out.push(section);
+            }
+        }
+        out
+    }
+
     pub fn title(self) -> &'static str {
         match self {
+            Self::Favorites => "Favorites",
+            Self::Suggestions => "Suggestions",
             Self::Commands => "Commands",
             Self::Applications => "Applications",
             Self::Quicklinks => "Quicklinks",
@@ -374,6 +405,8 @@ impl HomeSection {
 
     pub fn to_setting(self) -> &'static str {
         match self {
+            Self::Favorites => "favorites",
+            Self::Suggestions => "suggestions",
             Self::Commands => "commands",
             Self::Applications => "apps",
             Self::Quicklinks => "quicklinks",
@@ -505,6 +538,8 @@ pub struct Launcher {
     show_stats: bool,
     /// The kinds of items root search doesn't list before anything is typed.
     hidden_sections: Vec<HomeSection>,
+    /// Every `HomeSection`, in the order root search lists them.
+    home_order: Vec<HomeSection>,
     /// Item id → its registered hotkey.
     item_hotkeys: HashMap<String, Hotkey>,
     hotkeys: hotkey::Service,
@@ -538,8 +573,15 @@ pub struct Launcher {
     window_mode: WindowMode,
     /// ↓ showed root search's results in compact mode; typing clears it.
     revealed: bool,
-    /// The window currently has the collapsed (search field only) height.
+    /// The window currently has the collapsed (search field only) layout.
     window_collapsed: bool,
+    /// How much of the window shows, eased towards what its content needs.
+    height: HeightSpring,
+    /// The client height the window was last sized to; negative when the
+    /// HUD has it.
+    clipped_height: f32,
+    /// A task is on its way to size the window to `height`.
+    clip_pending: bool,
     /// Stays up when it loses focus. For the self-test, which runs beside
     /// the window that has it.
     pinned: bool,
@@ -582,9 +624,9 @@ impl Launcher {
             Ok(RawWindowHandle::Win32(handle)) => handle.hwnd.get(),
             other => panic!("expected a Win32 window handle, got {other:?}"),
         };
+        // A frameless popup gets square corners unless asked.
         win::round_corners(hwnd);
         theme::set_system(theme::appearance_of(cx.window_appearance()));
-        win::set_border_color(hwnd, theme::p().window_border);
 
         let input = cx.new(|cx| TextInput::new(SEARCH_PLACEHOLDER, cx));
         let panel_input = cx.new(|cx| TextInput::new("Search for actions…", cx));
@@ -718,6 +760,7 @@ impl Launcher {
             sections: Vec::new(),
             show_stats: std::env::var_os("SPOTLIGHT_STATS").is_some(),
             hidden_sections: Vec::new(),
+            home_order: HomeSection::ALL.to_vec(),
             hotkeys,
             editor: None,
             screens: Vec::new(),
@@ -740,6 +783,9 @@ impl Launcher {
             window_mode: WindowMode::default(),
             revealed: false,
             window_collapsed: false,
+            height: HeightSpring::default(),
+            clipped_height: -1.,
+            clip_pending: false,
             pinned: false,
             previous_window: 0,
             selection_copy: true,
@@ -1102,6 +1148,13 @@ impl Launcher {
         cx.notify();
     }
 
+    pub fn set_home_order(&mut self, order: Vec<HomeSection>, cx: &mut Context<Self>) {
+        self.home_order = HomeSection::complete_order(order);
+        let query = self.query(cx);
+        self.refilter(&query);
+        cx.notify();
+    }
+
     pub fn set_window_mode(&mut self, mode: WindowMode, cx: &mut Context<Self>) {
         self.window_mode = mode;
         if !self.visible && self.hud.is_none() {
@@ -1123,30 +1176,90 @@ impl Launcher {
             && self.input.read(cx).text().is_empty()
     }
 
-    /// Grows or shrinks the window when [`Self::collapsed`] changes; runs
-    /// after every notify.
+    /// Collapses or expands the layout when [`Self::collapsed`] changes;
+    /// runs after every notify. The height follows as it's drawn.
     fn sync_window_height(&mut self, cx: &mut Context<Self>) {
         let collapsed = self.collapsed(cx);
         if !self.visible || self.hud.is_some() || collapsed == self.window_collapsed {
             return;
         }
         self.window_collapsed = collapsed;
-        self.resize_window(cx);
         cx.notify();
     }
 
-    /// Gives the window the size `window_collapsed` says, from a task of its
-    /// own (see [`win::resize`]). Read when it runs: the HUD may have taken
-    /// the window meanwhile, and keeps its own size.
+    /// The height the window's content needs: the search row alone when
+    /// collapsed, a list's rows when they fit, else the whole window.
+    fn target_height(&self, cx: &App) -> f32 {
+        let max = WINDOW_SIZE.1;
+        if self.window_collapsed {
+            return COMPACT_HEIGHT;
+        }
+        let fits = self.panel.is_none()
+            && self.editor.is_none()
+            && matches!(self.screens.last(), None | Some(Screen::List { .. }))
+            && !self.in_grid(cx)
+            && !self.shows_previews(cx);
+        if !fits {
+            return max;
+        }
+        let body = if self.results.is_empty() {
+            EMPTY_BODY_HEIGHT
+        } else {
+            let trim = if self.sections.first().is_some_and(|(start, _)| *start == 0) {
+                HEADING_TRIM
+            } else {
+                0.
+            };
+            self.line_count() as f32 * ROW_HEIGHT + 2. * LIST_PADDING - trim + FIT_SLACK
+        };
+        // The search row, its hairline, the body and the footer.
+        (COMPACT_HEIGHT + 1. + body + FOOTER_HEIGHT).min(max)
+    }
+
+    /// How much of the window shows now, for the self-test.
+    pub fn visible_height(&self) -> f32 {
+        self.height.value
+    }
+
+    /// The window is always as tall as it can get, plus room to overshoot;
+    /// it shows the top `height` of itself.
+    fn full_client_height() -> f32 {
+        WINDOW_SIZE.1 + HEIGHT_HEADROOM
+    }
+
+    /// Sizes the window to `height` from a task of its own: it can't be done
+    /// while GPUI draws. Read when it runs: the HUD may have taken the window.
+    /// The window itself changes size, not a clip of it, so the blur behind
+    /// it and Windows' rounded corners and border follow its content.
+    fn clip_window(&mut self, cx: &mut Context<Self>) {
+        if self.clip_pending {
+            return;
+        }
+        self.clip_pending = true;
+        cx.spawn(async move |this, cx| {
+            let target = this.update(cx, |this, _| {
+                this.clip_pending = false;
+                (this.visible && this.hud.is_none()).then(|| {
+                    let height = this.height.value.min(Self::full_client_height());
+                    this.clipped_height = height;
+                    (this.hwnd, height)
+                })
+            });
+            if let Ok(Some((hwnd, height))) = target {
+                win::resize(hwnd, WINDOW_SIZE, Some(height));
+            }
+        })
+        .detach();
+    }
+
+    /// Gives the window its full size again (the HUD shrinks it), from a
+    /// task of its own (see [`win::resize`]). Read when it runs: the HUD may
+    /// have taken the window meanwhile, and keeps its own size.
     fn resize_window(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let target = this.read_with(cx, |this, _| {
-                this.hud
-                    .is_none()
-                    .then_some((this.hwnd, this.window_collapsed))
-            });
-            if let Ok(Some((hwnd, collapsed))) = target {
-                win::resize(hwnd, WINDOW_SIZE, collapsed.then_some(COMPACT_HEIGHT));
+            let target = this.read_with(cx, |this, _| this.hud.is_none().then_some(this.hwnd));
+            if let Ok(Some(hwnd)) = target {
+                win::resize(hwnd, WINDOW_SIZE, Some(Self::full_client_height()));
             }
         })
         .detach();
@@ -1275,50 +1388,57 @@ impl Launcher {
 
     /// Root search before anything is typed: the favorites, the items used
     /// most lately (with Rank by Usage on), then everything else by kind,
-    /// each under its heading.
+    /// each under its heading, in the order set in Settings. An item is
+    /// listed once: in Favorites, else Suggestions, else its kind.
     fn home(&self) -> (Vec<Row>, Vec<(usize, SharedString)>) {
         let catalog = self.search.catalog();
+        let shown = |section| !self.hidden_sections.contains(&section);
         let index = |id: &str| catalog.iter().position(|item| item.id == id);
-        let mut rows: Vec<usize> = Vec::new();
-        let mut sections = Vec::new();
-        let mut section = |title: &str, found: Vec<usize>, rows: &mut Vec<usize>| {
-            if !found.is_empty() {
-                sections.push((rows.len(), SharedString::from(title.to_owned())));
-                rows.extend(found);
-            }
-        };
-        let favorites: Vec<usize> = self.favorites.iter().filter_map(|id| index(id)).collect();
-        section("Favorites", favorites, &mut rows);
-        let now = frecency::now();
-        let mut used: Vec<(f64, usize)> = catalog
-            .iter()
-            .enumerate()
-            .filter(|_| self.rank_by_usage)
-            .filter(|(ix, _)| !rows.contains(ix))
-            .filter_map(|(ix, item)| {
-                let score = self.frecency.get(&item.id)?.score_at(now);
-                (score > 0.).then_some((score, ix))
-            })
-            .collect();
-        used.sort_by(|a, b| b.0.total_cmp(&a.0));
-        let suggested = used
-            .into_iter()
-            .take(SUGGESTIONS)
-            .map(|(_, ix)| ix)
-            .collect();
-        section("Suggestions", suggested, &mut rows);
-        let mut kinds = vec![Vec::new(); HomeSection::ALL.len()];
-        for (ix, item) in catalog.iter().enumerate() {
-            if !rows.contains(&ix) {
-                kinds[HomeSection::of(&item.id) as usize].push(ix);
+        let mut blocks: Vec<Vec<usize>> = vec![Vec::new(); HomeSection::ALL.len()];
+        let block = |section: HomeSection| section as usize;
+        let mut taken = vec![false; catalog.len()];
+        if shown(HomeSection::Favorites) {
+            for ix in self.favorites.iter().filter_map(|id| index(id)) {
+                if !taken[ix] {
+                    taken[ix] = true;
+                    blocks[block(HomeSection::Favorites)].push(ix);
+                }
             }
         }
-        for (kind, mut found) in HomeSection::ALL.into_iter().zip(kinds) {
-            if self.hidden_sections.contains(&kind) {
+        if self.rank_by_usage && shown(HomeSection::Suggestions) {
+            let now = frecency::now();
+            let mut used: Vec<(f64, usize)> = catalog
+                .iter()
+                .enumerate()
+                .filter(|(ix, _)| !taken[*ix])
+                .filter_map(|(ix, item)| {
+                    let score = self.frecency.get(&item.id)?.score_at(now);
+                    (score > 0.).then_some((score, ix))
+                })
+                .collect();
+            used.sort_by(|a, b| b.0.total_cmp(&a.0));
+            for (_, ix) in used.into_iter().take(SUGGESTIONS) {
+                taken[ix] = true;
+                blocks[block(HomeSection::Suggestions)].push(ix);
+            }
+        }
+        for (ix, item) in catalog.iter().enumerate() {
+            if !taken[ix] {
+                blocks[block(HomeSection::of(&item.id))].push(ix);
+            }
+        }
+        let mut rows: Vec<usize> = Vec::new();
+        let mut sections = Vec::new();
+        for &section in &self.home_order {
+            let mut found = std::mem::take(&mut blocks[block(section)]);
+            if found.is_empty() || !shown(section) {
                 continue;
             }
-            found.sort_by_cached_key(|&ix| catalog[ix].title.to_lowercase());
-            section(kind.title(), found, &mut rows);
+            if !matches!(section, HomeSection::Favorites | HomeSection::Suggestions) {
+                found.sort_by_cached_key(|&ix| catalog[ix].title.to_lowercase());
+            }
+            sections.push((rows.len(), SharedString::from(section.title())));
+            rows.extend(found);
         }
         (rows.into_iter().map(Row::Catalog).collect(), sections)
     }
@@ -1674,10 +1794,8 @@ impl Launcher {
         self.previous_window
     }
 
-    /// Redraws with the current theme: the window's outline is Windows' to
-    /// draw, so it is set again; everything else is read as it's drawn.
+    /// Redraws with the current theme, which is read as it's drawn.
     pub fn theme_changed(&mut self, cx: &mut Context<Self>) {
-        win::set_border_color(self.hwnd, theme::p().window_border);
         cx.notify();
     }
 
@@ -1724,13 +1842,13 @@ impl Launcher {
         self.stats.filter_ms = Some(self.refilter(""));
         self.revealed = false;
         self.window_collapsed = self.collapsed(cx);
+        // Opens at the height its content needs; only later changes ease.
+        self.height.snap(self.target_height(cx));
+        self.clipped_height = self.height.value;
+        win::set_border_color(self.hwnd, theme::p().window_border);
         // Explicit size: with `show: false` GPUI defers its own placement to
         // `activate()`, which we bypass, so the window would keep CW_USEDEFAULT.
-        win::show_on_active_monitor(
-            self.hwnd,
-            Some(WINDOW_SIZE),
-            self.window_collapsed.then_some(COMPACT_HEIGHT),
-        );
+        win::show_on_active_monitor(self.hwnd, Some(WINDOW_SIZE), Some(self.height.value));
         self.visible = true;
         window.focus(&self.input.focus_handle(cx));
 
@@ -2984,6 +3102,7 @@ impl Launcher {
         self.hud_generation += 1;
         let generation = self.hud_generation;
         win::show_without_focus_near_bottom(self.hwnd, HUD_SIZE);
+        self.clipped_height = -1.;
         cx.notify();
 
         cx.spawn(async move |this, cx| {
@@ -3210,117 +3329,125 @@ impl Launcher {
         };
 
         // Outer row spans the list width (uniform_list items otherwise shrink to
-        // their content); the inner block carries the inset, rounded highlight.
-        div().id(row).w_full().h(px(ROW_HEIGHT)).px_2().child(
-            div()
-                .id("highlight")
-                .size_full()
-                .px_3()
-                .flex()
-                .items_center()
-                .gap_3()
-                .rounded(px(8.))
-                .when(selected, |row| row.bg(rgba(theme::p().selected)))
-                .when(!selected, |row| {
-                    row.hover(|style| style.bg(rgba(theme::p().hover)))
-                })
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    if this.selected != row {
-                        this.selected = row;
-                        this.confirming = None;
-                    }
-                    this.panel = None;
-                    this.confirm(&Confirm, window, cx);
-                }))
-                .child(self.render_icon(item))
-                .when(stacked, |row| {
-                    // Beside a preview the list is narrow: the name gets the
-                    // whole width, what's after it goes underneath.
-                    row.child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .flex_col()
-                            .child(
-                                div()
-                                    .truncate()
-                                    .text_size(px(13.))
-                                    .line_height(px(17.))
-                                    .child(SharedString::from(item.title.clone())),
-                            )
-                            .child(
-                                div()
-                                    .truncate()
-                                    .text_size(px(11.))
-                                    .line_height(px(15.))
-                                    .text_color(if confirming {
-                                        rgba(theme::p().error)
-                                    } else {
-                                        rgba(theme::p().text_dim)
-                                    })
-                                    .child(subtitle.clone()),
-                            ),
-                    )
-                })
-                .when(!stacked, |row| {
-                    row.child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .items_baseline()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .max_w(px(420.))
-                                    .truncate()
-                                    .text_size(px(14.))
-                                    .child(SharedString::from(item.title.clone())),
-                            )
-                            .when_some(detail, |title, detail| {
-                                title.child(
+        // their content); the inner block carries the inset, rounded highlight,
+        // a little shorter than the row so neighbouring highlights (the
+        // selection and the row under the pointer) don't touch.
+        div()
+            .id(row)
+            .w_full()
+            .h(px(ROW_HEIGHT))
+            .px_2()
+            .py(px(ROW_GAP / 2.))
+            .child(
+                div()
+                    .id("highlight")
+                    .size_full()
+                    .px_3()
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .rounded(px(8.))
+                    .when(selected, |row| row.bg(rgba(theme::p().selected)))
+                    .when(!selected, |row| {
+                        row.hover(|style| style.bg(rgba(theme::p().hover)))
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        if this.selected != row {
+                            this.selected = row;
+                            this.confirming = None;
+                        }
+                        this.panel = None;
+                        this.confirm(&Confirm, window, cx);
+                    }))
+                    .child(self.render_icon(item))
+                    .when(stacked, |row| {
+                        // Beside a preview the list is narrow: the name gets the
+                        // whole width, what's after it goes underneath.
+                        row.child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .child(
                                     div()
-                                        .min_w_0()
                                         .truncate()
                                         .text_size(px(13.))
-                                        .text_color(rgba(theme::p().text_muted))
-                                        .child(detail),
+                                        .line_height(px(17.))
+                                        .child(SharedString::from(item.title.clone())),
                                 )
-                            }),
-                    )
-                })
-                .when_some(self.aliases.get(&item.id), |row, alias| {
-                    row.child(
-                        div()
-                            .flex_none()
-                            .px(px(6.))
-                            .rounded(px(4.))
-                            .border_1()
-                            .border_color(rgba(theme::p().surface_border))
-                            .text_size(px(11.))
-                            .text_color(rgba(theme::p().text_muted))
-                            .child(SharedString::from(alias.clone())),
-                    )
-                })
-                .when_some(self.item_hotkeys.get(&item.id), |row, hotkey| {
-                    row.child(keycaps(&hotkey_keys(*hotkey)))
-                })
-                .when(!stacked, |row| {
-                    row.child(
-                        div()
-                            .flex_none()
-                            .text_size(px(13.))
-                            .text_color(if confirming {
-                                rgba(theme::p().error)
-                            } else {
-                                rgba(theme::p().text_faint)
-                            })
-                            .child(accessory),
-                    )
-                }),
-        )
+                                .child(
+                                    div()
+                                        .truncate()
+                                        .text_size(px(11.))
+                                        .line_height(px(15.))
+                                        .text_color(if confirming {
+                                            rgba(theme::p().error)
+                                        } else {
+                                            rgba(theme::p().text_dim)
+                                        })
+                                        .child(subtitle.clone()),
+                                ),
+                        )
+                    })
+                    .when(!stacked, |row| {
+                        row.child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .items_baseline()
+                                .gap_2()
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .max_w(px(420.))
+                                        .truncate()
+                                        .text_size(px(14.))
+                                        .child(SharedString::from(item.title.clone())),
+                                )
+                                .when_some(detail, |title, detail| {
+                                    title.child(
+                                        div()
+                                            .min_w_0()
+                                            .truncate()
+                                            .text_size(px(13.))
+                                            .text_color(rgba(theme::p().text_muted))
+                                            .child(detail),
+                                    )
+                                }),
+                        )
+                    })
+                    .when_some(self.aliases.get(&item.id), |row, alias| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .px(px(6.))
+                                .rounded(px(4.))
+                                .border_1()
+                                .border_color(rgba(theme::p().surface_border))
+                                .text_size(px(11.))
+                                .text_color(rgba(theme::p().text_muted))
+                                .child(SharedString::from(alias.clone())),
+                        )
+                    })
+                    .when_some(self.item_hotkeys.get(&item.id), |row, hotkey| {
+                        row.child(keycaps(&hotkey_keys(*hotkey)))
+                    })
+                    .when(!stacked, |row| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .text_size(px(13.))
+                                .text_color(if confirming {
+                                    rgba(theme::p().error)
+                                } else {
+                                    rgba(theme::p().text_faint)
+                                })
+                                .child(accessory),
+                        )
+                    }),
+            )
     }
 
     /// Row `row`'s answer card, drawn from list line `line`, which is line
@@ -3802,7 +3929,8 @@ impl Launcher {
 
     fn render_footer(&self) -> impl IntoElement {
         div()
-            .h(px(40.))
+            .flex_none()
+            .h(px(FOOTER_HEIGHT))
             .px(px(16.))
             .flex()
             .items_center()
@@ -3874,10 +4002,11 @@ impl Render for Launcher {
                 .items_center()
                 .justify_center()
                 .px_4()
+                // Over the window's blur, like the launcher's background.
                 .bg(rgba(theme::p().hud))
                 .border_1()
                 .border_color(rgba(theme::p().surface_border))
-                .rounded(px(8.))
+                .rounded(px(WINDOW_RADIUS))
                 .text_color(rgba(theme::p().text))
                 .text_size(px(14.))
                 .line_height(px(20.))
@@ -3887,6 +4016,16 @@ impl Render for Launcher {
         }
         self.drop_stale_images(window);
         let collapsed = self.window_collapsed;
+        let target = self.target_height(cx);
+        if self.height.step(target, Instant::now()) {
+            window.request_animation_frame();
+        }
+        let height = self.height.value.min(Self::full_client_height());
+        if self.visible && (height - self.clipped_height).abs() >= 0.5 {
+            self.clip_window(cx);
+        }
+        // Collapsing keeps the rows while the window shrinks over them.
+        let show_body = !collapsed || height > COMPACT_HEIGHT + 1.;
         let favorites =
             (collapsed && self.compact_favorites).then(|| self.render_compact_favorites(cx));
         // Both run, so neither waits on the other's frame.
@@ -4052,14 +4191,19 @@ impl Render for Launcher {
             .on_action(cx.listener(Self::dismiss))
             .on_key_down(cx.listener(Self::run_shortcut))
             .track_focus(&self.focus)
-            .size_full()
+            .w_full()
+            .h(px(height))
+            .overflow_hidden()
             .flex()
             .flex_col()
+            // Over the window's blur, which shows through a little.
             .bg(rgba(tint()))
+            .rounded(px(WINDOW_RADIUS))
             .text_color(rgba(theme::p().text))
             .text_size(px(14.))
             .child(
                 div()
+                    .flex_none()
                     .px(px(20.))
                     .py(px(18.))
                     .flex()
@@ -4154,8 +4298,8 @@ impl Render for Launcher {
                             .children(favorites),
                     }),
             )
-            .when(!collapsed, |root| {
-                root.child(div().h(px(1.)).bg(rgba(theme::p().hairline)))
+            .when(show_body, |root| {
+                root.child(div().flex_none().h(px(1.)).bg(rgba(theme::p().hairline)))
                     .child(results)
                     .child(self.render_footer())
             })
@@ -4627,5 +4771,88 @@ mod tests {
         assert_eq!(caps("Ctrl+Alt+K"), "Ctrl Alt K");
         assert_eq!(caps("Win+F12"), "Win F12");
         assert_eq!(caps("Ctrl++"), "Ctrl =");
+    }
+}
+
+/// The launcher's visible height, eased towards where its content wants it
+/// along a slightly underdamped spring: it overshoots a little and settles.
+#[derive(Default)]
+struct HeightSpring {
+    value: f32,
+    velocity: f32,
+    target: f32,
+    /// When it last moved; `None` at rest.
+    last: Option<Instant>,
+}
+
+impl HeightSpring {
+    /// ω² for ω ≈ 22 rad/s: settles in about a quarter of a second.
+    const STIFFNESS: f32 = 480.;
+    /// 2ζω with ζ ≈ 0.7: overshoots by about 4%.
+    const DAMPING: f32 = 31.;
+
+    fn snap(&mut self, to: f32) {
+        *self = Self {
+            value: to,
+            velocity: 0.,
+            target: to,
+            last: None,
+        };
+    }
+
+    /// Moves towards `target` by the time since the last step. Returns
+    /// whether it is still moving.
+    fn step(&mut self, target: f32, now: Instant) -> bool {
+        if target != self.target {
+            self.target = target;
+            self.last.get_or_insert(now);
+        }
+        let Some(last) = self.last else {
+            return false;
+        };
+        // A long frame (a hitch, a hidden window) isn't one big jump.
+        let mut left = now.saturating_duration_since(last).as_secs_f32().min(0.05);
+        self.last = Some(now);
+        while left > 0. {
+            let dt = left.min(1. / 240.);
+            left -= dt;
+            let accel =
+                Self::STIFFNESS * (self.target - self.value) - Self::DAMPING * self.velocity;
+            self.velocity += accel * dt;
+            self.value += self.velocity * dt;
+        }
+        if (self.target - self.value).abs() < 0.3 && self.velocity.abs() < 4. {
+            self.snap(self.target);
+            return false;
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+mod height_spring_tests {
+    use super::*;
+
+    #[test]
+    fn overshoots_a_little_then_settles() {
+        let mut spring = HeightSpring::default();
+        spring.snap(64.);
+        let start = Instant::now();
+        let mut now = start;
+        let mut peak: f32 = 0.;
+        let mut frames = 0;
+        while spring.step(475., now) {
+            now += Duration::from_millis(8);
+            peak = peak.max(spring.value);
+            frames += 1;
+            assert!(frames < 200, "never settled");
+        }
+        assert_eq!(spring.value, 475.);
+        assert!(peak > 475. && peak < 475. + HEIGHT_HEADROOM, "peak {peak}");
+        assert!(
+            now - start < Duration::from_millis(700),
+            "{:?}",
+            now - start
+        );
     }
 }
