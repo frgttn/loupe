@@ -6,6 +6,12 @@ using Spotlight. Versions follow [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-06
+
+- **Home screen:** Settings › Home Screen lists what root search shows before you type, in order. Move sections up or down, hide the ones you do not want, or reset both to the defaults.
+- **Grid layout:** cards no longer overlap the rows below them.
+- **Window:** the launcher clips to its own height, so clicks below it reach the windows beneath.
+
 ## [1.1.0] - 2026-11-05
 
 - **Grid layout:** Settings › Appearance › Layout shows root search and every list as tiles instead of rows; Ctrl+Shift+G switches between them from anywhere in the launcher. Clipboard history and file search keep their rows beside the preview. Smooth scrolling works in the grid too.
