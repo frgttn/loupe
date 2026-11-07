@@ -9,11 +9,11 @@
 //!
 //! The app stays out of the Dock and Cmd+Tab ([`hide_from_dock`]).
 //!
-//! Windows open at GPUI's pop-up level, above floating panels, and their
-//! blurred background blurs ([`round_corners`]).
+//! Windows open at GPUI's pop-up level, above floating panels. Their layer
+//! gives them rounded corners and a border, as Windows' DWM does there, and
+//! their blurred background blurs ([`round_corners`]).
 //!
-//! Not yet: rounded corners, the border colour and the list of apps with
-//! windows (Settings) are no-ops.
+//! Not yet: the list of apps with windows (Settings) is empty.
 
 use loupe_core::clip::IgnoredApp;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -33,12 +33,14 @@ pub fn apps_with_windows() -> Vec<IgnoredApp> {
     Vec::new()
 }
 
-/// Rounded corners for the frameless window: not yet on macOS. Each window
-/// calls this once as it's made, so it also makes the blurred background
-/// blur.
+/// Rounded corners for the frameless window. Each window calls this once as
+/// it's made, so it also makes the blurred background blur.
 pub fn round_corners(raw: isize) {
     #[cfg(target_os = "macos")]
-    appkit::blur_behind(raw);
+    {
+        appkit::blur_behind(raw);
+        appkit::round_corners(raw);
+    }
     #[cfg(not(target_os = "macos"))]
     let _ = raw;
 }
@@ -47,8 +49,14 @@ pub fn round_corners(raw: isize) {
 /// macOS.
 pub fn clip_height(_raw: isize, _logical_height: Option<f32>) {}
 
-/// The colour (`0xRRGGBB`) of a border around the window. Not yet on macOS.
-pub fn set_border_color(_raw: isize, _rgb: u32) {}
+/// The colour (`0xRRGGBB`) of a border around the window: one pixel, inside
+/// its rounded edge.
+pub fn set_border_color(raw: isize, rgb: u32) {
+    #[cfg(target_os = "macos")]
+    appkit::set_border_color(raw, rgb);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (raw, rgb);
+}
 
 /// Lets a GUI process print to the terminal it was started from: on macOS it
 /// always can.
@@ -101,8 +109,13 @@ mod appkit {
         NSApplication, NSApplicationActivationPolicy, NSEvent, NSScreen, NSView,
         NSVisualEffectMaterial, NSVisualEffectView, NSWindow,
     };
+    use objc2_core_graphics::CGColor;
     use objc2_foundation::{NSPoint, NSRect, NSSize};
+    use objc2_quartz_core::CALayer;
 
+    /// The windows' corner radius in points: Windows 11's, which the
+    /// launcher draws its own background with too (`WINDOW_RADIUS`).
+    const CORNER_RADIUS: f64 = 8.;
     /// How far above the bottom of the screen's usable area the HUD sits.
     const HUD_MARGIN: f64 = 64.;
 
@@ -135,6 +148,49 @@ mod appkit {
             if let Ok(effect) = view.downcast::<NSVisualEffectView>() {
                 unsafe { effect.setMaterial(NSVisualEffectMaterial::HUDWindow) };
             }
+        }
+    }
+
+    /// The layer of the window's content view, which holds GPUI's view and
+    /// the blur under it: rounding and bordering it does both.
+    fn content_layer(window: &NSWindow) -> Option<Retained<CALayer>> {
+        let content = unsafe { window.contentView() }?;
+        unsafe {
+            content.setWantsLayer(true);
+            content.layer()
+        }
+    }
+
+    /// Clips the window, blur included, to rounded corners. The shadow
+    /// follows what's drawn, so it's worked out again.
+    pub(super) fn round_corners(raw: isize) {
+        let (Some(_), Some(window)) = (main_thread(), window(raw)) else {
+            return;
+        };
+        let Some(layer) = content_layer(&window) else {
+            return;
+        };
+        unsafe {
+            layer.setCornerRadius(CORNER_RADIUS);
+            layer.setMasksToBounds(true);
+            window.invalidateShadow();
+        }
+    }
+
+    /// A one-pixel border in `rgb` (`0xRRGGBB`), along the rounded edge.
+    pub(super) fn set_border_color(raw: isize, rgb: u32) {
+        let (Some(_), Some(window)) = (main_thread(), window(raw)) else {
+            return;
+        };
+        let Some(layer) = content_layer(&window) else {
+            return;
+        };
+        let channel = |shift: u32| f64::from((rgb >> shift) & 0xff) / 255.;
+        let color = CGColor::new_srgb(channel(16), channel(8), channel(0), 1.);
+        let scale = unsafe { window.backingScaleFactor() };
+        unsafe {
+            layer.setBorderWidth(1. / scale);
+            layer.setBorderColor(Some(&color));
         }
     }
 
@@ -199,7 +255,10 @@ mod appkit {
             // window of the full height would have it.
             let top = area.origin.y + area.size.height - (area.size.height - full_height) / 2.;
             let frame = NSRect::new(NSPoint::new(x, top - height), NSSize::new(width, height));
-            unsafe { window.setFrame_display(frame, true) };
+            unsafe {
+                window.setFrame_display(frame, true);
+                window.invalidateShadow();
+            }
         }
         unsafe {
             app(mtm).activate();
@@ -221,7 +280,12 @@ mod appkit {
             NSPoint::new(current.origin.x, top - height),
             NSSize::new(width, height),
         );
-        unsafe { window.setFrame_display(frame, true) };
+        unsafe {
+            window.setFrame_display(frame, true);
+            // The shadow is worked out from what's drawn: else it keeps the
+            // old height.
+            window.invalidateShadow();
+        }
     }
 
     /// Shows the window above others, horizontally centred near the bottom of
@@ -242,6 +306,7 @@ mod appkit {
         );
         unsafe {
             window.setFrame_display(frame, true);
+            window.invalidateShadow();
             window.orderFrontRegardless();
         }
     }
