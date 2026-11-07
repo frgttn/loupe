@@ -1,14 +1,8 @@
 //! Measurements: process memory, paint-latency probe, percentiles.
 
-use std::{
-    mem::size_of,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-use windows::Win32::System::{
-    ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
-    Threading::GetCurrentProcess,
-};
+use crate::os;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Memory {
@@ -18,20 +12,15 @@ pub struct Memory {
     pub private_mb: f64,
 }
 
+/// This process's memory now; zeros if the OS won't say.
 pub fn memory() -> Memory {
-    let mut counters = PROCESS_MEMORY_COUNTERS {
-        cb: size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-        ..Default::default()
-    };
-    let ok = unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, counters.cb) };
-    if !ok.as_bool() {
-        return Memory::default();
-    }
     const MB: f64 = 1024.0 * 1024.0;
-    Memory {
-        working_set_mb: counters.WorkingSetSize as f64 / MB,
-        private_mb: counters.PagefileUsage as f64 / MB,
-    }
+    os::process::memory()
+        .map(|(working_set, private)| Memory {
+            working_set_mb: working_set as f64 / MB,
+            private_mb: private as f64 / MB,
+        })
+        .unwrap_or_default()
 }
 
 pub fn ms(duration: Duration) -> f64 {

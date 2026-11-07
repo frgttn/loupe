@@ -6,6 +6,7 @@ pub mod deeplink;
 pub mod favicon;
 pub mod file_search;
 pub mod frecency;
+pub mod icon;
 pub mod item;
 pub mod placeholder;
 pub mod provider;

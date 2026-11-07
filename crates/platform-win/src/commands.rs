@@ -195,6 +195,12 @@ fn shell_execute_with(verb: &str, target: &str, parameters: &str) -> Outcome {
     shell_execute_in(verb, target, parameters, "")
 }
 
+/// Opens `target` (a file, folder or URL) with its default app and waits
+/// for the shell to take it. Starts COM in the calling thread.
+pub fn open_blocking(target: &str) -> Result<(), String> {
+    shell_execute_in("open", target, "", "").map(|_| ())
+}
+
 /// [`shell_execute_with`], started in folder `dir` (empty: ours).
 pub(crate) fn shell_execute_in(verb: &str, target: &str, parameters: &str, dir: &str) -> Outcome {
     let parameters = HSTRING::from(parameters);

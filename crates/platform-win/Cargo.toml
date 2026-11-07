@@ -10,7 +10,8 @@ publish.workspace = true
 
 [dependencies]
 async-channel.workspace = true
-# PNG for clipboard images; the rest for sites' icons (GPUI builds them anyway).
+# PNG for clipboard images; the rest for picture files copied to the clipboard
+# (GPUI builds them anyway).
 image = { workspace = true, features = ["png", "ico", "bmp", "jpeg", "gif", "webp"] }
 loupe-core.workspace = true
 # `Listed`, what a folder listing gives the file index.

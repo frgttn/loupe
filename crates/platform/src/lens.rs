@@ -7,13 +7,15 @@ use std::{fs, io::Cursor, path::PathBuf, thread, time::Duration, time::SystemTim
 
 use image::{ImageFormat, RgbaImage};
 
+use crate::os;
+
 /// Where the image goes (the form Lens's own "upload an image" uses).
 const UPLOAD: &str = "https://lens.google.com/v3/upload";
 /// How long the page (holding the picture) is kept for the browser to load it.
 const KEEP: Duration = Duration::from_secs(60);
 
-/// Opens Google Lens on `image` in the default browser. Blocking, and it
-/// starts COM in the calling thread: give it a thread of its own.
+/// Opens Google Lens on `image` in the default browser. Blocking (and on
+/// Windows it starts COM in the calling thread): give it a thread of its own.
 pub fn search(image: &RgbaImage) -> Result<(), String> {
     let mut png = Vec::new();
     image
@@ -25,8 +27,7 @@ pub fn search(image: &RgbaImage) -> Result<(), String> {
         .as_millis();
     let path: PathBuf = std::env::temp_dir().join(format!("loupe-lens-{stamp}.html"));
     fs::write(&path, page(&png, stamp)).map_err(|err| format!("Couldn't write the page: {err}"))?;
-    let opened =
-        crate::commands::shell_execute_in("open", &path.to_string_lossy(), "", "").map(|_| ());
+    let opened = os::commands::open_blocking(&path.to_string_lossy());
     thread::spawn(move || {
         thread::sleep(KEEP);
         let _ = fs::remove_file(path);
