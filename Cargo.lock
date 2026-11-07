@@ -3461,7 +3461,6 @@ dependencies = [
  "loupe-qr",
  "loupe-store",
  "loupe-ui",
- "raw-window-handle",
  "tray-icon",
  "velopack",
  "windows-sys 0.61.2",
@@ -3501,6 +3500,7 @@ dependencies = [
  "image",
  "loupe-core",
  "loupe-files",
+ "raw-window-handle",
  "windows 0.61.3",
  "windows-numerics 0.2.0",
 ]
@@ -3568,7 +3568,6 @@ dependencies = [
  "loupe-search",
  "loupe-store",
  "pulldown-cmark",
- "raw-window-handle",
  "unicode-segmentation",
 ]
 

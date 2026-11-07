@@ -77,9 +77,9 @@ impl Launcher {
         let rich = rich.unwrap_or_default();
         let written = match clip.as_ref().map(|clip| (clip, content_of(clip))) {
             Some((clip, _)) if clip.kind == ClipKind::Text && !rich.is_empty() => {
-                clipboard::write_rich(self.hwnd, &clip.content, &rich)
+                clipboard::write_rich(self.window_handle, &clip.content, &rich)
             }
-            Some((_, Some(content))) => clipboard::write(self.hwnd, &content),
+            Some((_, Some(content))) => clipboard::write(self.window_handle, &content),
             _ => Err("This entry is gone".into()),
         };
         if let Err(err) = written {

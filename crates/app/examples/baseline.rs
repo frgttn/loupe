@@ -8,7 +8,6 @@ use gpui::{
     rgb, size,
 };
 use loupe_platform::{metrics, win};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 struct Baseline;
 
@@ -34,18 +33,15 @@ fn main() {
                 |_, cx| cx.new(|_| Baseline),
             )
             .unwrap();
-        let hwnd = window
-            .update(cx, |_, window, _| match HasWindowHandle::window_handle(window).map(|h| h.as_raw()) {
-                Ok(RawWindowHandle::Win32(handle)) => handle.hwnd.get(),
-                _ => 0,
-            })
+        let handle = window
+            .update(cx, |_, window, _| win::native_handle(window).unwrap_or(0))
             .unwrap();
 
         cx.spawn(async move |cx| {
             let executor = cx.background_executor().clone();
             executor.timer(Duration::from_secs(5)).await;
             let shown = metrics::memory();
-            win::hide(hwnd);
+            win::hide(handle);
             executor.timer(Duration::from_secs(5)).await;
             let hidden = metrics::memory();
             eprintln!(

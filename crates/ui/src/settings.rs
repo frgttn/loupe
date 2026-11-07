@@ -33,7 +33,6 @@ use loupe_platform::{
     hotkey::{self, Hotkey, Recorded, SetError},
     index_service, win,
 };
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::{
     launcher::{ExtensionItem, HomeSection, Shortcut, Source, WindowMode, icon_font},
@@ -281,10 +280,8 @@ impl Settings {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        if let Ok(RawWindowHandle::Win32(handle)) =
-            HasWindowHandle::window_handle(window).map(|handle| handle.as_raw())
-        {
-            win::round_corners(handle.hwnd.get());
+        if let Some(handle) = win::native_handle(window) {
+            win::round_corners(handle);
         }
         // No title bar draws it, but the taskbar and Alt+Tab still show it.
         window.set_window_title("Loupe Settings");

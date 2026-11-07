@@ -38,7 +38,7 @@ impl Launcher {
     /// doesn't: it runs beside a normal instance, which already does.
     pub fn start_expander(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (asks_tx, asks_rx) = async_channel::unbounded();
-        match expander::spawn(self.hwnd, asks_tx) {
+        match expander::spawn(self.window_handle, asks_tx) {
             Ok(service) => {
                 self.expander = Some(service);
                 self.set_excluded_snippet_apps(&self.excluded_snippet_apps());
@@ -63,11 +63,11 @@ impl Launcher {
     /// A keyword whose snippet has arguments was typed in another app: shows
     /// the snippet's form, which pastes it there (see [`Self::paste_snippet`]).
     fn ask_snippet_arguments(&mut self, ask: Ask, window: &mut Window, cx: &mut Context<Self>) {
-        if !(self.visible && win::is_visible(self.hwnd)) {
+        if !(self.visible && win::is_visible(self.window_handle)) {
             self.show(Instant::now(), window, cx);
         }
         // Not opened by its hotkey, so Windows may not hand it the foreground.
-        win::take_foreground(self.hwnd);
+        win::take_foreground(self.window_handle);
         self.previous_window = ask.window;
         self.screens.clear();
         self.push_view(
@@ -274,7 +274,7 @@ impl Launcher {
         // Counted in graphemes, so the same with `\n` or `\r\n` line breaks.
         let caret_back = expansion.moves_back();
         let text = snippet::normalize_text(&expansion.text).replace('\n', "\r\n");
-        if let Err(err) = clipboard::write(self.hwnd, &Content::Text(text)) {
+        if let Err(err) = clipboard::write(self.window_handle, &Content::Text(text)) {
             eprintln!("[loupe] could not copy the snippet: {err}");
             self.hide(cx);
             self.show_hud(format!("Couldn't copy: {err}").into(), cx);
