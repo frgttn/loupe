@@ -3,8 +3,8 @@
 //! screen capture, measurements).
 //!
 //! `app`, `ui` and `providers` import it as `loupe_platform::<module>` and
-//! never name an OS crate. Each OS crate (`loupe-platform-win`, later
-//! `loupe-platform-mac` and `loupe-platform-linux`) offers the same modules
+//! never name an OS crate. Each OS crate (`loupe-platform-win`,
+//! `loupe-platform-mac`, later `loupe-platform-linux`) offers the same modules
 //! with the same signatures, and this crate re-exports the one for the target,
 //! so switching OS needs no `cfg` in the callers.
 //!
@@ -14,14 +14,23 @@
 //!
 //! Window handles cross this boundary as raw `isize` values, events as
 //! `async_channel` receivers; nothing here knows about GPUI.
+//!
+//! Building with `RUSTFLAGS="--cfg loupe_mac_stub"` on Windows uses the macOS
+//! crate instead, as if the target were macOS: a quick check, without a Mac,
+//! that it still offers everything the callers use.
 
-#[cfg(windows)]
+#[cfg(all(windows, not(loupe_mac_stub)))]
 use loupe_platform_win as os;
-#[cfg(windows)]
+#[cfg(all(windows, not(loupe_mac_stub)))]
 pub use loupe_platform_win::*;
 
-#[cfg(not(windows))]
-compile_error!("Loupe has no platform layer for this OS yet: only Windows is implemented");
+#[cfg(any(target_os = "macos", loupe_mac_stub))]
+use loupe_platform_mac as os;
+#[cfg(any(target_os = "macos", loupe_mac_stub))]
+pub use loupe_platform_mac::*;
+
+#[cfg(not(any(windows, target_os = "macos")))]
+compile_error!("Loupe has no platform layer for this OS yet: only Windows and macOS");
 
 pub mod favicon;
 pub mod lens;

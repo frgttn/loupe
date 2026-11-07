@@ -19,3 +19,7 @@ loupe-files.workspace = true
 loupe-platform.workspace = true
 loupe-qr.workspace = true
 loupe-store.workspace = true
+
+[lints.rust]
+# `--cfg loupe_mac_stub` builds Windows against the macOS crate (see loupe-platform).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loupe_mac_stub)"] }
