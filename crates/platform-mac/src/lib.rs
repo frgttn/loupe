@@ -65,11 +65,5 @@ impl From<&str> for Error {
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Self(err.to_string())
-    }
-}
-
 /// `windows::core::Result`'s counterpart.
 pub type Result<T> = std::result::Result<T, Error>;

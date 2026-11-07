@@ -25,7 +25,6 @@ version = "0.3"
 default-features = false
 features = [
     "std",
-    "libc",
     "objc2-core-foundation",
     "objc2-quartz-core",
     "NSApplication",
