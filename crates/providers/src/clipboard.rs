@@ -26,7 +26,7 @@ use loupe_core::{
     provider::Provider,
     view::{ListFilter, ListView, Preview, PreviewBody, View},
 };
-use loupe_platform_win::{
+use loupe_platform::{
     clipboard::{Content, Copied},
     vault,
 };
@@ -556,7 +556,7 @@ fn hash(kind: u8, bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use loupe_core::clip::RichText;
-    use loupe_platform_win::clipboard::Image;
+    use loupe_platform::clipboard::Image;
 
     use super::*;
 

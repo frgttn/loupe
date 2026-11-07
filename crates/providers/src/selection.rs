@@ -1,6 +1,6 @@
 //! Commands on the text selected in another app: search the web for it,
 //! translate it. The app reads the selection when one runs (see
-//! `loupe_platform_win::selection`); turning this source off in Settings
+//! `loupe_platform::selection`); turning this source off in Settings
 //! stops Loupe from ever reading it, for quicklinks' `{selection}` too.
 
 use std::sync::Arc;

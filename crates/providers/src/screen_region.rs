@@ -1,6 +1,6 @@
 //! A part of the screen: drag it out, then copy its text (Windows OCR),
 //! read its QR codes or search it with Google Lens. The launcher draws the
-//! selection and does the work (see `loupe_platform_win::region`).
+//! selection and does the work (see `loupe_platform::region`).
 
 use loupe_core::{
     item::{Command, Icon, RegionAction, SearchItem},

@@ -28,7 +28,7 @@ use loupe_core::{
     web::{self, SearchEngine},
     window::GAPS,
 };
-use loupe_platform_win::{
+use loupe_platform::{
     autostart, commands,
     hotkey::{self, Hotkey, Recorded, SetError},
     index_service, win,

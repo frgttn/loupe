@@ -18,7 +18,7 @@ use std::{
 };
 
 use loupe_core::{deeplink, update::Status};
-use loupe_platform_win::{autostart, index_service, protocol};
+use loupe_platform::{autostart, index_service, protocol};
 use velopack::{UpdateCheck, UpdateInfo, UpdateManager, VelopackApp, sources::GithubSource};
 
 /// The first check, after start has settled.

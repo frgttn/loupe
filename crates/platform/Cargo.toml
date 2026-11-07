@@ -1,0 +1,12 @@
+[package]
+name = "loupe-platform"
+description = "Loupe's platform layer: the integration for the OS it is built for, under one set of module names"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+loupe-platform-win.workspace = true

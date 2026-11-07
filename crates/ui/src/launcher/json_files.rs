@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use gpui::Context;
-use loupe_platform_win::{
+use loupe_platform::{
     dialog::{self, FileType, Request},
     links,
 };

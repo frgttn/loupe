@@ -16,7 +16,7 @@ image = { workspace = true, features = ["png"] }
 pulldown-cmark.workspace = true
 raw-window-handle.workspace = true
 loupe-core.workspace = true
-loupe-platform-win.workspace = true
+loupe-platform.workspace = true
 loupe-qr.workspace = true
 loupe-search.workspace = true
 loupe-store.workspace = true

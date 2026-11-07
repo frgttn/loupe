@@ -36,6 +36,7 @@ Later, and optional: a tiny elevated helper for interacting with admin windows. 
   ui             # GPUI views: launcher, list, action panel, detail (markdown), form, settings
   core           # domain types: SearchItem, Action, Provider trait, ranking, frecency
   search         # aggregator: fan-out to providers, cancel on new keystroke, merge + rank (nucleo)
+  platform       # facade: re-exports the OS crate for the target (app/ui/providers never name one)
   platform-win   # windows-rs: hotkey/hook, focus, window mgmt, clipboard, UIA, app discovery, icons
   store          # rusqlite + SQLCipher: settings, frecency, clipboard history, snippets, quicklinks
   providers/
@@ -150,6 +151,8 @@ Script commands are a simple, language-agnostic way to extend the launcher.
 ---
 
 ## 6. Windows platform layer (`platform-win`)
+
+`app`, `ui` and `providers` reach it only through `platform` (`loupe_platform::<module>`), which re-exports it on Windows. A macOS or Linux crate offers the same modules with the same signatures and `platform` re-exports that one instead. The index service (`service`) is Windows-only and uses `platform-win` directly.
 
 | Need | API |
 |---|---|

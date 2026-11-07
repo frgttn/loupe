@@ -5,7 +5,7 @@
 //! on GPUI's main thread, whose message loop then dispatches the tray messages.
 
 use loupe_core::update::Status as UpdateStatus;
-use loupe_platform_win::autostart;
+use loupe_platform::autostart;
 use tray_icon::{
     Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
     menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem},
@@ -167,7 +167,7 @@ fn icon() -> Result<Icon, String> {
     // The mark spans 180 units (8..188 by 6..186) around (98, 96); this many
     // pixels per unit fills the icon with half a pixel to spare on each side.
     const SCALE: f32 = 31. / 180.;
-    let mark: [u8; 3] = if loupe_platform_win::system::taskbar_dark() {
+    let mark: [u8; 3] = if loupe_platform::system::taskbar_dark() {
         [255, 255, 255]
     } else {
         [0, 0, 0]

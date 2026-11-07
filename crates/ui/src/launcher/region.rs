@@ -1,5 +1,5 @@
 //! Capture Screen Region: the launcher hides, the user drags out a part of
-//! the screen (see `loupe_platform_win::region`), and its text is copied
+//! the screen (see `loupe_platform::region`), and its text is copied
 //! (Windows OCR), its QR codes are read, or it's searched with Google Lens
 //! in the browser.
 
@@ -7,7 +7,7 @@ use std::{thread, time::Duration};
 
 use gpui::{ClipboardItem, Context, Window};
 use loupe_core::item::RegionAction;
-use loupe_platform_win::{lens, ocr, region};
+use loupe_platform::{lens, ocr, region};
 
 use super::Launcher;
 

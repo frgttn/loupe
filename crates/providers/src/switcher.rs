@@ -10,7 +10,7 @@ use loupe_core::{
     view::{ListFilter, ListView, View},
     window::WindowCommand,
 };
-use loupe_platform_win::wm::{self, ProcessInfo, WindowInfo};
+use loupe_platform::wm::{self, ProcessInfo, WindowInfo};
 
 use crate::glyph;
 

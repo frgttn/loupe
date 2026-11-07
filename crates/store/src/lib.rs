@@ -2,7 +2,7 @@
 //! calculator history, quicklinks, the clipboard history and snippets.
 //!
 //! The database is SQLCipher: encrypted with a 256-bit key the caller keeps
-//! (see `loupe_platform_win::vault`). Without a key it is plain SQLite.
+//! (see `loupe_platform::vault`). Without a key it is plain SQLite.
 //!
 //! Calls are blocking. They are short (one indexed row), but callers on the UI
 //! thread should still move writes to a background task.
