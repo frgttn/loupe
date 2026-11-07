@@ -1,4 +1,4 @@
-//! Where updating Spotlight has got, as Settings and the tray show it.
+//! Where updating Loupe has got, as Settings and the tray show it.
 
 /// The state of the updater.
 #[derive(Clone, Debug, PartialEq)]
@@ -13,7 +13,7 @@ pub enum Status {
     /// Downloading this version.
     Downloading(String),
     /// This version is downloaded and replaces the running one on restart
-    /// (or at the next start, if Spotlight isn't restarted for it).
+    /// (or at the next start, if Loupe isn't restarted for it).
     Ready(String),
     Failed(String),
 }

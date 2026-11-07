@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex, RwLock};
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,
@@ -10,7 +10,7 @@ use spotlight_core::{
     view::{Field, FieldKind, FormView, View},
     web::{PRESETS, SearchEngine, encode_query},
 };
-use spotlight_store::Store;
+use loupe_store::Store;
 
 use crate::glyph;
 

@@ -1,6 +1,6 @@
 [package]
-name = "spotlight-store"
-description = "SQLite persistence for Spotlight: settings, frecency, quicklinks, clipboard history"
+name = "loupe-store"
+description = "SQLite persistence for Loupe: settings, frecency, quicklinks, clipboard history"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ publish.workspace = true
 
 [dependencies]
 rusqlite.workspace = true
-spotlight-core.workspace = true
+loupe-core.workspace = true

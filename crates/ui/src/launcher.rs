@@ -30,8 +30,7 @@ use gpui::{
     img, prelude::*, px, relative, rgba, uniform_list,
 };
 use image::{Frame, RgbaImage};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use spotlight_core::{
+use loupe_core::{
     deeplink,
     frecency::{self, Frecency},
     item::{Action, Command, Icon, SearchItem, shortcut},
@@ -41,7 +40,7 @@ use spotlight_core::{
     web::SearchEngine,
     window::WindowCommand,
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     clipboard as system_clipboard, commands, expander, favicon,
     hotkey::{self, Hotkey, Recorded, SetError},
     icons,
@@ -49,8 +48,9 @@ use spotlight_platform_win::{
     selection, win,
     wm::{self, RunningApp},
 };
-use spotlight_search::{Candidate, RootSearch, Row, Searcher, Split};
-use spotlight_store::{CachedIcon, Calculation, Store};
+use loupe_search::{Candidate, RootSearch, Row, Searcher, Split};
+use loupe_store::{CachedIcon, Calculation, Store};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use self::{
     clipboard::{PREVIEW_LIST_WIDTH, PreviewImage},
@@ -160,7 +160,7 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
-/// Filler rows for the 10k-item list test (`SPOTLIGHT_SYNTHETIC`).
+/// Filler rows for the 10k-item list test (`LOUPE_SYNTHETIC`).
 struct Synthetic(usize);
 
 impl Provider for Synthetic {
@@ -496,7 +496,7 @@ pub struct Launcher {
     /// shut down): that item's id and the action's index. Moving the selection
     /// or typing clears it.
     confirming: Option<(String, usize)>,
-    /// The command a `spotlight://` link named, shown alone until Enter.
+    /// The command a `loupe://` link named, shown alone until Enter.
     /// Typing or hiding drops it.
     pending_link: Option<PendingLink>,
     /// Ids of the items that open from links without asking.
@@ -535,7 +535,7 @@ pub struct Launcher {
     favorites: Vec<String>,
     /// Where root search's sections start, by row, with their headings.
     sections: Vec<(usize, SharedString)>,
-    /// Whether the footer shows timings and memory (`SPOTLIGHT_STATS=1`).
+    /// Whether the footer shows timings and memory (`LOUPE_STATS=1`).
     show_stats: bool,
     /// The kinds of items root search doesn't list before anything is typed.
     hidden_sections: Vec<HomeSection>,
@@ -663,7 +663,7 @@ impl Launcher {
             .and_then(|store| store.lock().ok())
             .map(|store| {
                 store.frecency().unwrap_or_else(|err| {
-                    eprintln!("[spotlight] could not read frecency: {err}");
+                    eprintln!("[loupe] could not read frecency: {err}");
                     HashMap::new()
                 })
             })
@@ -687,11 +687,11 @@ impl Launcher {
             .and_then(|store| store.lock().ok())
             .map(|store| {
                 let aliases = store.aliases().unwrap_or_else(|err| {
-                    eprintln!("[spotlight] could not read aliases: {err}");
+                    eprintln!("[loupe] could not read aliases: {err}");
                     HashMap::new()
                 });
                 let hotkeys = store.item_hotkeys().unwrap_or_else(|err| {
-                    eprintln!("[spotlight] could not read item hotkeys: {err}");
+                    eprintln!("[loupe] could not read item hotkeys: {err}");
                     HashMap::new()
                 });
                 (aliases, hotkeys)
@@ -706,7 +706,7 @@ impl Launcher {
                 match hotkeys.set_item(&id, Some(hotkey)) {
                     Ok(()) => Some((id, hotkey)),
                     Err(err) => {
-                        eprintln!("[spotlight] hotkey {hotkey} for {id:?}: {err}");
+                        eprintln!("[loupe] hotkey {hotkey} for {id:?}: {err}");
                         None
                     }
                 }
@@ -759,7 +759,7 @@ impl Launcher {
             item_hotkeys,
             favorites,
             sections: Vec::new(),
-            show_stats: std::env::var_os("SPOTLIGHT_STATS").is_some(),
+            show_stats: std::env::var_os("LOUPE_STATS").is_some(),
             hidden_sections: Vec::new(),
             home_order: HomeSection::ALL.to_vec(),
             hotkeys,
@@ -777,8 +777,8 @@ impl Launcher {
             live_generation: 0,
             window_scale: window.scale_factor(),
             asked_icons: HashSet::new(),
-            file_prefix: spotlight_core::file_search::DEFAULT_PREFIX.to_owned(),
-            run_prefix: spotlight_core::run::DEFAULT_PREFIX.to_owned(),
+            file_prefix: loupe_core::file_search::DEFAULT_PREFIX.to_owned(),
+            run_prefix: loupe_core::run::DEFAULT_PREFIX.to_owned(),
             prefix_rows: Vec::new(),
             visible: false,
             window_mode: WindowMode::default(),
@@ -827,7 +827,7 @@ impl Launcher {
                     let _ = tx.send_blocking((ix, items, started.elapsed()));
                 });
             if let Err(err) = spawned {
-                eprintln!("[spotlight] could not start a catalog thread: {err}");
+                eprintln!("[loupe] could not start a catalog thread: {err}");
                 self.loading -= 1;
             }
         }
@@ -883,11 +883,11 @@ impl Launcher {
     ) {
         let id = self.search.providers()[provider].id();
         if !self.search.is_enabled(provider) {
-            eprintln!("[spotlight] {id}: turned off while loading; catalog dropped");
+            eprintln!("[loupe] {id}: turned off while loading; catalog dropped");
             return;
         }
         eprintln!(
-            "[spotlight] {id}: {} items in {:.1} ms",
+            "[loupe] {id}: {} items in {:.1} ms",
             items.len(),
             ms(elapsed)
         );
@@ -989,7 +989,7 @@ impl Launcher {
             .partition(|&ix| !names[ix].starts_with(SITE_ICON));
         let wanted: Vec<usize> = shell.iter().chain(&sites).copied().collect();
         eprintln!(
-            "[spotlight] icons: {} saved, {} to extract",
+            "[loupe] icons: {} saved, {} to extract",
             names.len() - wanted.len(),
             wanted.len()
         );
@@ -1040,7 +1040,7 @@ impl Launcher {
                                         .map_err(|e| e.to_string())
                                 });
                             if let Err(err) = result {
-                                eprintln!("[spotlight] could not save icons: {err}");
+                                eprintln!("[loupe] could not save icons: {err}");
                             }
                         })
                         .detach();
@@ -1307,7 +1307,7 @@ impl Launcher {
                 .is_some_and(|ix| search.is_enabled(ix))
         });
         // After Run's prefix, only Run: what's typed and the past commands.
-        let run = spotlight_core::run::after_prefix(&self.run_prefix, query).and_then(|_| {
+        let run = loupe_core::run::after_prefix(&self.run_prefix, query).and_then(|_| {
             let ix = search
                 .providers()
                 .iter()
@@ -2173,7 +2173,7 @@ impl Launcher {
             EntryKind::RecordHotkey => return self.open_hotkey_editor(id, title, cx),
             EntryKind::RemoveHotkey => {
                 if let Err(err) = self.hotkeys.set_item(&id, None) {
-                    eprintln!("[spotlight] could not remove the hotkey of {id:?}: {err}");
+                    eprintln!("[loupe] could not remove the hotkey of {id:?}: {err}");
                 }
                 self.hotkey_assigned(&id, None, cx);
                 self.show_toast(format!("Hotkey removed from {title}").into(), cx);
@@ -2340,7 +2340,7 @@ impl Launcher {
                 self.search_live(cx);
             }
             None => {
-                eprintln!("[spotlight] {provider} has no view {id:?}");
+                eprintln!("[loupe] {provider} has no view {id:?}");
                 self.show_toast("Nothing to show".into(), cx);
             }
         }
@@ -2519,7 +2519,7 @@ impl Launcher {
         if file_query(&self.file_prefix, &query).is_some() {
             return Some(("Search Files".into(), Some("Tab")));
         }
-        spotlight_core::run::after_prefix(&self.run_prefix, &query).map(|_| ("Run".into(), None))
+        loupe_core::run::after_prefix(&self.run_prefix, &query).map(|_| ("Run".into(), None))
     }
 
     /// Adds item `id` to the favorites, or takes it out.
@@ -2752,7 +2752,7 @@ impl Launcher {
                     format!("{} is turned off in Settings", source.name).into(),
                     cx,
                 ),
-                None => eprintln!("[spotlight] hotkey for {id:?}, which isn't loaded (yet)"),
+                None => eprintln!("[loupe] hotkey for {id:?}, which isn't loaded (yet)"),
             }
             return;
         };
@@ -3083,7 +3083,7 @@ impl Launcher {
     fn persist(
         &self,
         cx: &mut Context<Self>,
-        write: impl FnOnce(&Store) -> spotlight_store::Result<()> + Send + 'static,
+        write: impl FnOnce(&Store) -> loupe_store::Result<()> + Send + 'static,
     ) {
         let Some(store) = self.store.clone() else {
             return;
@@ -3095,7 +3095,7 @@ impl Launcher {
                     .map_err(|_| "store lock poisoned".to_owned())
                     .and_then(|store| write(&store).map_err(|err| err.to_string()));
                 if let Err(err) = result {
-                    eprintln!("[spotlight] could not save: {err}");
+                    eprintln!("[loupe] could not save: {err}");
                 }
             })
             .detach();
@@ -3147,7 +3147,7 @@ impl Launcher {
                     .map_err(|_| "store lock poisoned".to_owned())
                     .and_then(|store| store.forget(&id).map_err(|err| err.to_string()));
                 if let Err(err) = result {
-                    eprintln!("[spotlight] could not reset the ranking of {id:?}: {err}");
+                    eprintln!("[loupe] could not reset the ranking of {id:?}: {err}");
                 }
             })
             .detach();
@@ -3189,7 +3189,7 @@ impl Launcher {
                         store.record_visit(&id, now).map_err(|err| err.to_string())
                     });
                 if let Err(err) = result {
-                    eprintln!("[spotlight] could not save frecency for {id:?}: {err}");
+                    eprintln!("[loupe] could not save frecency for {id:?}: {err}");
                 }
             })
             .detach();
@@ -3220,7 +3220,7 @@ impl Launcher {
             .and_then(|store| store.lock().ok())
             .map(|store| {
                 store.calculations().unwrap_or_else(|err| {
-                    eprintln!("[spotlight] could not read the calculator history: {err}");
+                    eprintln!("[loupe] could not read the calculator history: {err}");
                     Vec::new()
                 })
             })
@@ -3272,7 +3272,7 @@ impl Launcher {
                             .map_err(|err| err.to_string())
                     });
                 if let Err(err) = result {
-                    eprintln!("[spotlight] could not save the calculation: {err}");
+                    eprintln!("[loupe] could not save the calculation: {err}");
                 }
             })
             .detach();
@@ -4445,7 +4445,7 @@ fn files_hint(rest: &str) -> SearchItem {
     } else {
         format!("Search Files for “{rest}”")
     };
-    SearchItem::new(item_id("spotlight", "files-prefix"), title)
+    SearchItem::new(item_id("loupe", "files-prefix"), title)
         .subtitle("Tab")
         .icon(Icon::Glyph('\u{E721}'))
         .action(

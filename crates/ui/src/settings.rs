@@ -20,8 +20,7 @@ use gpui::{
     SharedString, Stateful, Subscription, Task, Window, WindowControlArea, actions, div, img,
     prelude::*, px, rgba,
 };
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use spotlight_core::{
+use loupe_core::{
     clip::{self, IgnoredApp, Retention},
     file_search::{self, Config as FileSearchConfig, Status as FileSearchStatus},
     item::Command,
@@ -29,11 +28,12 @@ use spotlight_core::{
     web::{self, SearchEngine},
     window::GAPS,
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     autostart, commands,
     hotkey::{self, Hotkey, Recorded, SetError},
     index_service, win,
 };
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::{
     launcher::{ExtensionItem, HomeSection, Shortcut, Source, WindowMode, icon_font},
@@ -87,7 +87,7 @@ pub type LauncherReader = Rc<dyn Fn(&App) -> Option<LauncherState>>;
 /// Reads how far file indexing has got.
 pub type FileStatusReader = Rc<dyn Fn() -> FileSearchStatus>;
 
-/// Reads where updating Spotlight has got.
+/// Reads where updating Loupe has got.
 pub type UpdateStatusReader = Rc<dyn Fn() -> UpdateStatus>;
 
 /// File Search's page id, as its provider names itself.
@@ -287,7 +287,7 @@ impl Settings {
             win::round_corners(handle.hwnd.get());
         }
         // No title bar draws it, but the taskbar and Alt+Tab still show it.
-        window.set_window_title("Spotlight Settings");
+        window.set_window_title("Loupe Settings");
         let recorder = cx.focus_handle();
         let search = cx.new(|cx| TextInput::new("Search settings…", cx));
         // Recording takes every key press system-wide, so it ends as soon as
@@ -409,9 +409,9 @@ impl Settings {
             version,
             update_status,
             data_path,
-            // `SPOTLIGHT_SETTINGS_PAGE=<key>` opens on that page, for screenshots.
+            // `LOUPE_SETTINGS_PAGE=<key>` opens on that page, for screenshots.
             history: vec![
-                std::env::var("SPOTLIGHT_SETTINGS_PAGE")
+                std::env::var("LOUPE_SETTINGS_PAGE")
                     .ok()
                     .and_then(|key| PAGES.into_iter().find(|page| page.key() == key))
                     .unwrap_or(Page::General),
@@ -520,7 +520,7 @@ impl Settings {
             Ok(()) => {
                 self.hotkey = Some(hotkey);
                 cx.emit(SettingsEvent::HotkeyChanged(hotkey));
-                (format!("Spotlight now opens with {hotkey}.").into(), false)
+                (format!("Loupe now opens with {hotkey}.").into(), false)
             }
             Err(SetError::InUse) => (
                 format!(
@@ -1599,10 +1599,10 @@ impl Settings {
                 "Installed but not running; Search Files walks folders meanwhile."
             }
             (index_service::State::NotInstalled, true) => {
-                "A Windows service that reads NTFS drives' file tables and change journals, which needs an administrator once. It tells Spotlight only about folders you can open yourself."
+                "A Windows service that reads NTFS drives' file tables and change journals, which needs an administrator once. It tells Loupe only about folders you can open yourself."
             }
             (index_service::State::NotInstalled, false) => {
-                "spotlight-service.exe isn't next to Spotlight, so it can't be installed from here."
+                "loupe-service.exe isn't next to Loupe, so it can't be installed from here."
             }
         };
         let button = match state {
@@ -2287,7 +2287,7 @@ impl Page {
                 "selection" => ('\u{E8B3}', YELLOW),
                 "settings" => ('\u{E713}', GRAY),
                 "snippets" => ('\u{E943}', PURPLE),
-                "spotlight" => ('\u{E721}', INDIGO),
+                "loupe" => ('\u{E721}', INDIGO),
                 "system" => ('\u{E7E8}', RED),
                 "web" => ('\u{E774}', BLUE),
                 _ => ('\u{EA86}', GRAY),
@@ -2703,7 +2703,7 @@ impl Settings {
                 .child(
                     row(
                         "Start at Login",
-                        "Run Spotlight in the background when you sign in.",
+                        "Run Loupe in the background when you sign in.",
                     )
                     .child(switch(
                         "autostart",
@@ -2916,7 +2916,7 @@ impl Settings {
         ]
     }
 
-    /// The commands `spotlight://` links run without waiting for Enter, each
+    /// The commands `loupe://` links run without waiting for Enter, each
     /// with a button that makes it ask again.
     fn trusted_link_list(&self, cx: &mut Context<Self>) -> AnyElement {
         if self.trusted_links.is_empty() {
@@ -3120,7 +3120,7 @@ impl Settings {
                         .pt_2()
                         .text_size(px(24.))
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child("Spotlight"),
+                        .child("Loupe"),
                 )
                 .child(
                     div()
@@ -3138,7 +3138,7 @@ impl Settings {
                 .into_any_element(),
             section_title("Updates"),
             card()
-                .child(row("Spotlight Updates", description).children(update_button))
+                .child(row("Loupe Updates", description).children(update_button))
                 .child(divider())
                 .child(card_row_corners(
                     link_row(

@@ -1,18 +1,18 @@
 //! QR codes in the launcher: the code drawn in its view, copying it as an
 //! image or saving it as a PNG file, and scanning the screen or the
-//! clipboard's image for codes (see `spotlight_qr`).
+//! clipboard's image for codes (see `loupe_qr`).
 
 use std::{fs, sync::Arc, time::Duration, time::Instant};
 
 use gpui::{Context, RenderImage, Window};
 use image::Frame;
-use spotlight_core::item::{CLIPBOARD, QrSource};
-use spotlight_platform_win::{
+use loupe_core::item::{CLIPBOARD, QrSource};
+use loupe_platform_win::{
     clipboard::{self, Content, Image},
     dialog::{self, Request},
     links, screen,
 };
-use spotlight_qr::Code;
+use loupe_qr::Code;
 
 use super::Launcher;
 
@@ -44,7 +44,7 @@ impl Launcher {
             text.to_owned()
         };
         match Code::new(&text) {
-            Ok(_) => self.push_view(spotlight_qr::view(&text, false), window, cx),
+            Ok(_) => self.push_view(loupe_qr::view(&text, false), window, cx),
             Err(err) => self.show_toast(err.into(), cx),
         }
     }
@@ -92,7 +92,7 @@ impl Launcher {
             let path = match picked.recv().await {
                 Ok(Ok(Some(path))) => path,
                 Ok(Err(err)) => {
-                    eprintln!("[spotlight] the file dialog failed: {err}");
+                    eprintln!("[loupe] the file dialog failed: {err}");
                     return;
                 }
                 _ => return,
@@ -135,7 +135,7 @@ impl Launcher {
                             QrSource::Clipboard => clipboard::image(owner)?
                                 .ok_or("There's no image on the clipboard")?,
                         };
-                        Ok::<_, String>(spotlight_qr::read(&image))
+                        Ok::<_, String>(loupe_qr::read(&image))
                     })
                     .await;
             let none = match source {
@@ -161,7 +161,7 @@ impl Launcher {
         cx: &mut Context<Self>,
     ) {
         let message = match scanned {
-            Ok(codes) => match spotlight_qr::scanned_view(&codes) {
+            Ok(codes) => match loupe_qr::scanned_view(&codes) {
                 Some(view) => {
                     if !self.visible {
                         self.show(Instant::now(), window, cx);

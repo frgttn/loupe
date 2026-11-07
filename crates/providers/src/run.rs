@@ -9,15 +9,15 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
-use spotlight_core::{
+use loupe_core::{
     frecency,
     item::{Command, Icon, SearchItem, shortcut},
     item_id,
     provider::Provider,
     run::{self, HISTORY_SHOWN},
 };
-use spotlight_platform_win::run::{KnownCommand, known_commands};
-use spotlight_store::Store;
+use loupe_platform_win::run::{KnownCommand, known_commands};
+use loupe_store::Store;
 
 pub const ID: &str = "run";
 /// How many past commands follow the one typed.

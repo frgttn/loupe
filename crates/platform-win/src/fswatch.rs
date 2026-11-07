@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn reports_creates_renames_and_deletes() {
-        let dir = std::env::temp_dir().join(format!("spotlight-fswatch-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-fswatch-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("sub")).unwrap();
         let (tx, rx) = async_channel::unbounded();

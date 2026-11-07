@@ -4,8 +4,8 @@
 //! `tray-icon` creates a hidden window on the calling thread, so this must run
 //! on GPUI's main thread, whose message loop then dispatches the tray messages.
 
-use spotlight_core::update::Status as UpdateStatus;
-use spotlight_platform_win::autostart;
+use loupe_core::update::Status as UpdateStatus;
+use loupe_platform_win::autostart;
 use tray_icon::{
     Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
     menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem},
@@ -29,7 +29,7 @@ pub struct Tray {
 impl Tray {
     /// Shows the tray icon. Menu picks and left clicks arrive on `commands`.
     pub fn create(hotkey: &str, commands: async_channel::Sender<Command>) -> Result<Self, String> {
-        let open = MenuItem::new("Open Spotlight", true, None);
+        let open = MenuItem::new("Open Loupe", true, None);
         let settings = MenuItem::new("Settings…", true, None);
         let autostart = CheckMenuItem::new("Start at login", true, autostart::is_enabled(), None);
         let update = MenuItem::new("Check for Updates", true, None);
@@ -118,7 +118,7 @@ impl Tray {
 }
 
 fn tooltip(hotkey: &str) -> String {
-    format!("Spotlight ({hotkey})")
+    format!("Loupe ({hotkey})")
 }
 
 /// The logo (two interlocked half rings, the same geometry as `assets/logo-white.svg`
@@ -129,7 +129,7 @@ fn icon() -> Result<Icon, String> {
     const SAMPLES: u32 = 4;
     // Logo coordinates are on a 100 x 100 grid; this many pixels per unit.
     const SCALE: f32 = 0.38;
-    let mark: [u8; 3] = if spotlight_platform_win::system::taskbar_dark() {
+    let mark: [u8; 3] = if loupe_platform_win::system::taskbar_dark() {
         [255, 255, 255]
     } else {
         [0, 0, 0]

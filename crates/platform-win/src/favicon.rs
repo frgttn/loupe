@@ -1,5 +1,5 @@
 //! Sites' icons, fetched from the sites themselves (see
-//! [`spotlight_core::favicon`]) and decoded to the same BGRA as shell icons.
+//! [`loupe_core::favicon`]) and decoded to the same BGRA as shell icons.
 
 use std::{
     sync::{
@@ -10,7 +10,7 @@ use std::{
 };
 
 use image::imageops::FilterType;
-use spotlight_core::favicon;
+use loupe_core::favicon;
 
 use crate::{icons::Icon, net};
 

@@ -2,9 +2,11 @@
 
 What changed in each release. The section for a version becomes its GitHub
 release notes and what the app shows when it updates, so write it for people
-using Spotlight. Versions follow [Semantic Versioning](https://semver.org).
+using Loupe (called Spotlight up to 1.1.1). Versions follow [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
+
+- **Spotlight is now Loupe.** The new name avoids a clash with Apple's Spotlight ahead of a macOS version. Loupe installs next to Spotlight as a separate app and starts with fresh settings and history: `Loupe-win-Setup.exe` installs it into `%LocalAppData%\Loupe`, and its data lives in `%APPDATA%\loupe`. Spotlight won't update to Loupe by itself; uninstall it from Windows Settings › Apps. Links now start with `loupe://`; `spotlight://` links no longer open the app.
 
 ## [1.1.1] - 2026-11-06
 

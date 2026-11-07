@@ -10,7 +10,7 @@ use windows::{
 };
 
 /// Sites that turn away clients without one (Reddit) answer browsers.
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Spotlight";
+const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Loupe";
 
 fn client() -> Result<HttpClient, String> {
     let client = HttpClient::new().map_err(|err| err.message())?;

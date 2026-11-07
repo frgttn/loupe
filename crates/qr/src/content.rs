@@ -2,7 +2,7 @@
 //! a phone number, a text message, a place or an event, in the formats
 //! phones and code generators write (ZXing's "barcode contents"), else text.
 
-use spotlight_core::item::{WifiNetwork, WifiSecurity};
+use loupe_core::item::{WifiNetwork, WifiSecurity};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Content {
@@ -269,7 +269,7 @@ fn event(text: &str) -> Option<Event> {
     } else {
         // Calendars want the event wrapped in a calendar.
         format!(
-            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Spotlight//QR//EN\r\n{text}\r\nEND:VCALENDAR"
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Loupe//QR//EN\r\n{text}\r\nEND:VCALENDAR"
         )
     };
     Some(event)

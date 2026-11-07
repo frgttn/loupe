@@ -1,12 +1,12 @@
 //! Control Panel items (Device Manager, Mouse, Credential Manager…), as the
 //! shell lists them on this machine, with their own icons.
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,
 };
-use spotlight_platform_win::apps;
+use loupe_platform_win::apps;
 
 pub const ID: &str = "control-panel";
 

@@ -1,7 +1,7 @@
 //! Pages of the Windows Settings app, opened directly by their `ms-settings:`
 //! URIs. A page a Windows version doesn't have opens Settings' home page.
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,

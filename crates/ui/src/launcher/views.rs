@@ -14,8 +14,8 @@ use gpui::{
     Animation, AnimationExt, AnyElement, App, Context, Entity, FocusHandle, Focusable, RenderImage,
     ScrollHandle, SharedString, TextRun, Window, div, img, list, prelude::*, px, rgba,
 };
-use spotlight_core::item::shortcut;
-use spotlight_core::view::{DetailView, FieldKind, FieldValue, FormView, ListView, LiveRows, View};
+use loupe_core::item::shortcut;
+use loupe_core::view::{DetailView, FieldKind, FieldValue, FormView, ListView, LiveRows, View};
 
 use super::{Entry, EntryKind, Launcher, ToggleLayout, keycaps};
 use crate::{
@@ -734,7 +734,7 @@ impl Launcher {
     }
 
     /// The items of the open list or grid, to filter.
-    pub(super) fn list_items(&self) -> Option<&[spotlight_core::item::SearchItem]> {
+    pub(super) fn list_items(&self) -> Option<&[loupe_core::item::SearchItem]> {
         match self.screens.last() {
             Some(Screen::List { view, .. }) => Some(&view.items),
             _ => None,

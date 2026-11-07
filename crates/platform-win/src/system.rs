@@ -7,7 +7,7 @@
 
 use std::{ffi::c_void, mem::size_of, os::windows::process::CommandExt, process, ptr, thread};
 
-use spotlight_core::item::SystemCommand;
+use loupe_core::item::SystemCommand;
 use windows::{
     Devices::Radios::{Radio, RadioAccessStatus, RadioKind, RadioState},
     Win32::{
@@ -245,7 +245,7 @@ fn toggle_bluetooth() -> Outcome {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
-    let denied = "Windows doesn't let Spotlight change Bluetooth (Settings › Privacy › Radios)";
+    let denied = "Windows doesn't let Loupe change Bluetooth (Settings › Privacy › Radios)";
     let access = Radio::RequestAccessAsync()
         .and_then(|operation| operation.get())
         .map_err(message)?;
@@ -468,7 +468,7 @@ mod tests {
     use super::*;
 
     /// Sets the volume to the level it already has, through the real call.
-    /// Run by hand: `cargo test -p spotlight-platform-win -- --ignored`.
+    /// Run by hand: `cargo test -p loupe-platform-win -- --ignored`.
     #[test]
     #[ignore = "talks to the audio device"]
     fn sets_volume_to_its_current_level() {

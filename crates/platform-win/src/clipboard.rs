@@ -17,7 +17,7 @@ use std::{
 };
 
 use image::{ImageFormat, RgbaImage};
-use spotlight_core::clip::RichText;
+use loupe_core::clip::RichText;
 use windows::{
     Win32::{
         Foundation::{GlobalFree, HANDLE, HGLOBAL, HWND},
@@ -75,7 +75,7 @@ pub struct Copied {
     /// The formatting copied with text; empty for anything else.
     pub rich: RichText,
     /// The app that copied it: its display name and program path. `None`
-    /// when it can't be told, and when Spotlight itself wrote it.
+    /// when it can't be told, and when Loupe itself wrote it.
     pub app: Option<(String, String)>,
 }
 
@@ -92,10 +92,10 @@ const MAX_PIXELS: u64 = 50_000_000;
 /// writing it.
 const SETTLE: Duration = Duration::from_millis(100);
 
-/// Set while Spotlight copies another app's selection to read it (see
+/// Set while Loupe copies another app's selection to read it (see
 /// `selection`): what lands on the clipboard then isn't the user's copy.
 static BORROWED: AtomicBool = AtomicBool::new(false);
-/// Changes up to this clipboard sequence number were Spotlight borrowing
+/// Changes up to this clipboard sequence number were Loupe borrowing
 /// the clipboard and putting it back; the history skips them.
 static BORROWED_THROUGH: AtomicU32 = AtomicU32::new(0);
 
@@ -109,7 +109,7 @@ pub fn listen(copied: async_channel::Sender<Copied>) -> Result<(), String> {
             let window = match CreateWindowExW(
                 WINDOW_EX_STYLE(0),
                 w!("STATIC"),
-                w!("Spotlight clipboard listener"),
+                w!("Loupe clipboard listener"),
                 WINDOW_STYLE(0),
                 0,
                 0,
@@ -584,7 +584,7 @@ struct AppNames {
 
 impl AppNames {
     /// The app owning `window`: its name and program path. `None` for
-    /// Spotlight itself.
+    /// Loupe itself.
     fn of_window(&mut self, window: HWND) -> Option<(String, String)> {
         let mut pid = 0;
         unsafe { GetWindowThreadProcessId(window, Some(&mut pid)) };
@@ -689,7 +689,7 @@ pub fn foreground_window() -> isize {
 
 /// Activates `window` and presses Ctrl+V in it, to paste what was just put on
 /// the clipboard, then Left `caret_back` times (to put the caret inside what
-/// was pasted). Call it while Spotlight is still the foreground app: only
+/// was pasted). Call it while Loupe is still the foreground app: only
 /// then may it hand the foreground to another window. Returns `false` (and
 /// does nothing) when the window is gone.
 pub fn paste_into(window: isize, caret_back: usize) -> bool {
@@ -713,7 +713,7 @@ pub fn paste_into(window: isize, caret_back: usize) -> bool {
     true
 }
 
-/// Asks Windows to activate `window`. Only allowed while Spotlight is the
+/// Asks Windows to activate `window`. Only allowed while Loupe is the
 /// foreground app. `false` when the window is gone.
 pub fn bring_to_front(window: isize) -> bool {
     let target = HWND(window as *mut c_void);

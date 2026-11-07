@@ -5,7 +5,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use spotlight_core::{item::SearchItem, provider::Provider};
+use loupe_core::{item::SearchItem, provider::Provider};
 
 use crate::{Candidate, Searcher};
 

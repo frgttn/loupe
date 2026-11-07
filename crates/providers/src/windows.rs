@@ -2,7 +2,7 @@
 //! always on top, for the window that was active before the launcher (or
 //! has the keyboard when an item hotkey is pressed).
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,

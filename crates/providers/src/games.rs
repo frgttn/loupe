@@ -8,12 +8,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,
 };
-use spotlight_platform_win::registry;
+use loupe_platform_win::registry;
 
 use crate::glyph;
 

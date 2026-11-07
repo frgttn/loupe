@@ -66,7 +66,7 @@ const TERMINAL_PROGRAMS: &[&str] = &[
 ];
 
 /// Reads the text selected in `window`, the window that was active before
-/// the launcher. Call it while Spotlight is still the foreground app, which
+/// the launcher. Call it while Loupe is still the foreground app, which
 /// lets it give the foreground back. With `copy`, apps that don't share
 /// their selection are sent Ctrl+C; `owner` (a window of ours) then holds
 /// the clipboard while it's put back.
@@ -115,7 +115,7 @@ fn from_automation(window: isize) -> Result<Option<String>, String> {
         let focused = automation
             .GetFocusedElement()
             .map_err(|err| err.to_string())?;
-        // Only the app the launcher came from; never Spotlight itself.
+        // Only the app the launcher came from; never Loupe itself.
         let mut pid = 0;
         GetWindowThreadProcessId(HWND(window as *mut c_void), Some(&mut pid));
         if focused.CurrentProcessId().ok() != Some(pid as i32) {

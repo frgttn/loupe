@@ -1,4 +1,4 @@
-//! Domain types shared by every Spotlight crate. No platform or UI code here.
+//! Domain types shared by every Loupe crate. No platform or UI code here.
 
 pub mod clip;
 pub mod datetime;

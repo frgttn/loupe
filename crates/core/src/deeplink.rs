@@ -1,7 +1,7 @@
-//! `spotlight://` links, shaped like Raycast's `raycast://` ones:
+//! `loupe://` links, shaped like Raycast's `raycast://` ones:
 //!
-//! - `spotlight://` opens the launcher.
-//! - `spotlight://extensions/spotlight/{provider}/{command}` runs a command.
+//! - `loupe://` opens the launcher.
+//! - `loupe://extensions/loupe/{provider}/{command}` runs a command.
 //!   `{command}` is the item id's instance, percent-encoded (`system/lock`,
 //!   `apps/Microsoft.WindowsCalculator_8wekyb3d8bbwe%21App`), or the item's
 //!   title as a slug (`system/lock-screen`), as Raycast writes them.
@@ -20,9 +20,9 @@ use crate::{
     view::{FieldKind, FieldValue, View},
 };
 
-pub const SCHEME: &str = "spotlight";
+pub const SCHEME: &str = "loupe";
 /// The one "author" there is so far; Raycast puts the extension's owner here.
-const OWNER: &str = "spotlight";
+const OWNER: &str = "loupe";
 /// A provider whose command doesn't always ask for its arguments (a
 /// quicklink whose arguments all have defaults) gives its form as view
 /// `arguments:{instance}`, for links that bring arguments.
@@ -30,7 +30,7 @@ pub const ARGUMENTS_VIEW: &str = "arguments:";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Deeplink {
-    /// `spotlight://`: just open the launcher.
+    /// `loupe://`: just open the launcher.
     Open,
     Command(CommandLink),
 }
@@ -65,7 +65,7 @@ impl CommandLink {
     }
 }
 
-/// Reads a `spotlight://` link; the error says what is wrong with it.
+/// Reads a `loupe://` link; the error says what is wrong with it.
 pub fn parse(link: &str) -> Result<Deeplink, String> {
     let link = link.trim();
     let rest = link
@@ -85,7 +85,7 @@ pub fn parse(link: &str) -> Result<Deeplink, String> {
         None => Ok(Deeplink::Open),
         Some("extensions") => {
             let [_, owner, provider, command] = segments.as_slice() else {
-                return Err("expected extensions/spotlight/{provider}/{command}".into());
+                return Err("expected extensions/loupe/{provider}/{command}".into());
             };
             if owner != OWNER {
                 return Err(format!("unknown extension author {owner:?}"));
@@ -334,23 +334,23 @@ mod tests {
 
     #[test]
     fn opens_the_launcher() {
-        assert_eq!(parse("spotlight://"), Ok(Deeplink::Open));
-        assert_eq!(parse("spotlight:"), Ok(Deeplink::Open));
-        assert_eq!(parse("Spotlight:///"), Ok(Deeplink::Open));
+        assert_eq!(parse("loupe://"), Ok(Deeplink::Open));
+        assert_eq!(parse("loupe:"), Ok(Deeplink::Open));
+        assert_eq!(parse("Loupe:///"), Ok(Deeplink::Open));
         assert!(parse("raycast://").is_err());
         assert!(parse("https://example.com").is_err());
-        assert!(parse("spotlight://confetti").is_err());
+        assert!(parse("loupe://confetti").is_err());
     }
 
     #[test]
     fn reads_command_links() {
-        let link = command("spotlight://extensions/spotlight/system/lock");
+        let link = command("loupe://extensions/loupe/system/lock");
         assert_eq!(link.item_id(), "system:lock");
         assert!(link.arguments.is_empty());
         assert_eq!(link.fallback_text, None);
 
         let link = command(
-            "spotlight://extensions/spotlight/quicklinks/7?arguments=%7B%22Repo%22%3A%22zed%22%2C%22n%22%3A2%7D&fallbackText=hello+world",
+            "loupe://extensions/loupe/quicklinks/7?arguments=%7B%22Repo%22%3A%22zed%22%2C%22n%22%3A2%7D&fallbackText=hello+world",
         );
         assert_eq!(link.item_id(), "quicklinks:7");
         assert_eq!(
@@ -359,15 +359,15 @@ mod tests {
         );
         assert_eq!(link.fallback_text.as_deref(), Some("hello world"));
 
-        let link = command("spotlight://extensions/spotlight/x/y?arguments=a&arguments=b");
+        let link = command("loupe://extensions/loupe/x/y?arguments=a&arguments=b");
         assert_eq!(link.arguments.len(), 2);
 
-        assert!(parse("spotlight://extensions/spotlight/system").is_err());
-        assert!(parse("spotlight://extensions/someone/system/lock").is_err());
-        assert!(parse("spotlight://extensions/spotlight/x/y?arguments=%7Bnope").is_err());
+        assert!(parse("loupe://extensions/loupe/system").is_err());
+        assert!(parse("loupe://extensions/someone/system/lock").is_err());
+        assert!(parse("loupe://extensions/loupe/x/y?arguments=%7Bnope").is_err());
 
         let link = command(
-            "spotlight://extensions/spotlight/snippets/import?context=%5B%7B%22text%22%3A%22hi%22%7D%5D",
+            "loupe://extensions/loupe/snippets/import?context=%5B%7B%22text%22%3A%22hi%22%7D%5D",
         );
         assert_eq!(link.context.as_deref(), Some(r#"[{"text":"hi"}]"#));
     }
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn names_items_by_id_or_title() {
-        let link = command("spotlight://extensions/spotlight/system/lock-screen");
+        let link = command("loupe://extensions/loupe/system/lock-screen");
         assert!(link.names("system:lock", "Lock Screen"));
         assert!(!link.names("apps:lock", "Lock Screen"));
         assert!(!link.names("system:sleep", "Sleep"));

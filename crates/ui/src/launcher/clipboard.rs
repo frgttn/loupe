@@ -10,16 +10,16 @@ use gpui::{
     px, rgba,
 };
 use image::{Frame, ImageFormat};
-use spotlight_core::{
+use loupe_core::{
     clip::{ClipKind, IGNORED_APPS_SETTING, IgnoredApp, RichText},
     item::SearchItem,
     view::{Preview, PreviewBody},
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     clipboard::{self, Content, Image},
     icons, vault,
 };
-use spotlight_store::Clip;
+use loupe_store::Clip;
 
 use super::{Launcher, views::Screen};
 use crate::theme;
@@ -83,7 +83,7 @@ impl Launcher {
             _ => Err("This entry is gone".into()),
         };
         if let Err(err) = written {
-            eprintln!("[spotlight] could not restore clipboard entry {id}: {err}");
+            eprintln!("[loupe] could not restore clipboard entry {id}: {err}");
             self.hide(cx);
             self.show_hud(format!("Couldn't copy: {err}").into(), cx);
             return;
@@ -110,10 +110,10 @@ impl Launcher {
             .and_then(|store| store.lock().ok())
             .map(|store| store.pin_clip(id, pinned));
         if let Some(Err(err)) = saved {
-            eprintln!("[spotlight] could not pin clipboard entry {id}: {err}");
+            eprintln!("[loupe] could not pin clipboard entry {id}: {err}");
         }
         // Pinning moves the entry; it stays selected.
-        let item_id = spotlight_core::item_id(PROVIDER, &id.to_string());
+        let item_id = loupe_core::item_id(PROVIDER, &id.to_string());
         self.refresh_screen(Some(&item_id), window, cx);
         self.show_toast(if pinned { "Pinned" } else { "Unpinned" }.into(), cx);
     }
@@ -126,7 +126,7 @@ impl Launcher {
             .map(|store| store.delete_clip(id));
         match deleted {
             Some(Ok(Some(clip))) => clip.remove_files(),
-            Some(Err(err)) => eprintln!("[spotlight] could not delete clipboard entry {id}: {err}"),
+            Some(Err(err)) => eprintln!("[loupe] could not delete clipboard entry {id}: {err}"),
             _ => {}
         }
         self.refresh_screen(None, window, cx);
@@ -145,7 +145,7 @@ impl Launcher {
                 removed.len()
             }
             Some(Err(err)) => {
-                eprintln!("[spotlight] could not clear the clipboard history: {err}");
+                eprintln!("[loupe] could not clear the clipboard history: {err}");
                 0
             }
             None => 0,
@@ -178,7 +178,7 @@ impl Launcher {
         let message = match saved {
             Ok(()) => format!("Copies from {} won't be kept", app.name),
             Err(err) => {
-                eprintln!("[spotlight] could not ignore {}: {err}", app.path);
+                eprintln!("[loupe] could not ignore {}: {err}", app.path);
                 format!("Couldn't ignore {}", app.name)
             }
         };
@@ -450,7 +450,7 @@ impl Launcher {
 /// The clipboard provider's id, whose view lists the entries.
 const PROVIDER: &str = "clipboard";
 
-fn ignored_apps(store: &spotlight_store::Store) -> Vec<IgnoredApp> {
+fn ignored_apps(store: &loupe_store::Store) -> Vec<IgnoredApp> {
     store
         .setting(IGNORED_APPS_SETTING)
         .ok()

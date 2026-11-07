@@ -72,7 +72,7 @@ pub struct SearchOptions<'a> {
     pub now: i64,
     /// Include hidden and system files (ranked lower).
     pub include_hidden: bool,
-    /// The entry's current frecency, e.g. from opening it in Spotlight.
+    /// The entry's current frecency, e.g. from opening it in Loupe.
     pub frecency: Option<&'a (dyn Fn(EntryId) -> f64 + Sync)>,
     /// Set by the caller when a newer query makes this one moot.
     pub cancel: Option<&'a AtomicBool>,

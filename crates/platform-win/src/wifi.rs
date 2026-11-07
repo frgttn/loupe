@@ -4,7 +4,7 @@
 
 use std::{ffi::c_void, ptr};
 
-use spotlight_core::item::{WifiNetwork, WifiSecurity};
+use loupe_core::item::{WifiNetwork, WifiSecurity};
 use windows::{
     Win32::{
         Foundation::{ERROR_ACCESS_DENIED, HANDLE},

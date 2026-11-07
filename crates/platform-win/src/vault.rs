@@ -31,13 +31,13 @@ use windows::{
 pub type Key = [u8; 32];
 
 /// The database key's entry in Credential Manager (Generic Credentials).
-const CREDENTIAL: &str = "Spotlight/database";
+const CREDENTIAL: &str = "Loupe/database";
 /// Starts every sealed file; files without it are from before encryption.
 const MAGIC: &[u8; 4] = b"SPV1";
 const NONCE: usize = 12;
 const TAG: usize = 16;
 /// What the file key is derived for, so it is never the database key itself.
-const FILES_CONTEXT: &[u8] = b"spotlight/files";
+const FILES_CONTEXT: &[u8] = b"loupe/files";
 /// `BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO_VERSION`, missing from the bindings.
 const AUTH_MODE_INFO_VERSION: u32 = 1;
 
@@ -62,7 +62,7 @@ pub fn database_key() -> windows::core::Result<(Key, bool)> {
                 key
             };
             // Someone else's entry under this name, or a damaged one: a
-            // key Spotlight didn't write can't open anything it wrote.
+            // key Loupe didn't write can't open anything it wrote.
             key.map(|key| (key, false))
                 .or_else(|_| Ok((save_new_key(&target)?, true)))
         }
@@ -76,7 +76,7 @@ pub fn database_key() -> windows::core::Result<(Key, bool)> {
 fn save_new_key(target: &HSTRING) -> windows::core::Result<Key> {
     let mut key = Key::default();
     random(&mut key)?;
-    let user = HSTRING::from("Spotlight");
+    let user = HSTRING::from("Loupe");
     let credential = CREDENTIALW {
         Type: CRED_TYPE_GENERIC,
         TargetName: PWSTR(target.as_ptr() as *mut u16),

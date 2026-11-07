@@ -3,13 +3,13 @@
 //! the launcher (for codes it scanned) both open.
 
 use image::{GrayImage, ImageFormat, Luma, RgbaImage};
-use qrcode::{Color, EcLevel, QrCode};
-use spotlight_core::{
+use loupe_core::{
     item::{Action, CardKind, Command, Icon, SearchItem, WifiSecurity},
     item_id,
     quicklink::encode_value,
     view::{DetailView, ListView, View},
 };
+use qrcode::{Color, EcLevel, QrCode};
 
 mod content;
 
@@ -503,12 +503,12 @@ mod tests {
     #[test]
     fn reads_a_small_code_on_two_wide_screens() {
         // 2.5 pixels a module once scaled down: found in the full-size tiles.
-        let code = Code::new("https://example.com/spotlight-selftest")
+        let code = Code::new("https://example.com/loupe-selftest")
             .unwrap()
             .image(5);
         let mut screens = RgbaImage::from_pixel(4480, 1440, image::Rgba([30, 30, 30, 255]));
         image::imageops::overlay(&mut screens, &code, 2507, 413);
-        assert_eq!(read(&screens), ["https://example.com/spotlight-selftest"]);
+        assert_eq!(read(&screens), ["https://example.com/loupe-selftest"]);
     }
 
     #[test]
@@ -579,7 +579,7 @@ mod tests {
         );
         assert_eq!(
             detail.actions[0].command,
-            Command::ConnectWifi(spotlight_core::item::WifiNetwork {
+            Command::ConnectWifi(loupe_core::item::WifiNetwork {
                 ssid: "Home".into(),
                 security: WifiSecurity::Wpa,
                 password: "secret".into(),

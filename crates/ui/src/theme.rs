@@ -86,8 +86,8 @@ pub struct Theme {
     pub palette: Palette,
 }
 
-pub const SPOTLIGHT_DARK: &str = "spotlight-dark";
-pub const SPOTLIGHT_LIGHT: &str = "spotlight-light";
+pub const LOUPE_DARK: &str = "loupe-dark";
+pub const LOUPE_LIGHT: &str = "loupe-light";
 
 /// The built-in themes: dark first, then light.
 ///
@@ -97,8 +97,8 @@ pub const SPOTLIGHT_LIGHT: &str = "spotlight-light";
 /// WinUI doesn't have, the nearest token is used and the comment says so.
 pub static THEMES: &[Theme] = &[
     Theme {
-        id: SPOTLIGHT_DARK,
-        name: "Spotlight Dark",
+        id: LOUPE_DARK,
+        name: "Loupe Dark",
         appearance: Appearance::Dark,
         palette: Palette {
             // SolidBackgroundFillColorBase / Mica base.
@@ -156,8 +156,8 @@ pub static THEMES: &[Theme] = &[
         },
     },
     Theme {
-        id: SPOTLIGHT_LIGHT,
-        name: "Spotlight Light",
+        id: LOUPE_LIGHT,
+        name: "Loupe Light",
         appearance: Appearance::Light,
         palette: Palette {
             // SolidBackgroundFillColorBase / Mica base.
@@ -336,8 +336,8 @@ mod tests {
         for appearance in [Appearance::Dark, Appearance::Light] {
             assert_eq!(theme_of(appearance).appearance, appearance);
         }
-        assert_eq!(theme_of(Appearance::Dark).id, SPOTLIGHT_DARK);
-        assert_eq!(theme_of(Appearance::Light).id, SPOTLIGHT_LIGHT);
+        assert_eq!(theme_of(Appearance::Dark).id, LOUPE_DARK);
+        assert_eq!(theme_of(Appearance::Light).id, LOUPE_LIGHT);
     }
 
     #[test]

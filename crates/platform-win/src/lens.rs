@@ -23,7 +23,7 @@ pub fn search(image: &RgbaImage) -> Result<(), String> {
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let path: PathBuf = std::env::temp_dir().join(format!("spotlight-lens-{stamp}.html"));
+    let path: PathBuf = std::env::temp_dir().join(format!("loupe-lens-{stamp}.html"));
     fs::write(&path, page(&png, stamp)).map_err(|err| format!("Couldn't write the page: {err}"))?;
     let opened =
         crate::commands::shell_execute_in("open", &path.to_string_lossy(), "", "").map(|_| ());

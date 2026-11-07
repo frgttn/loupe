@@ -4,7 +4,7 @@
 
 use std::{os::windows::process::CommandExt, process, thread};
 
-use spotlight_core::{
+use loupe_core::{
     item::{CardKind, Command},
     quicklink,
 };
@@ -177,7 +177,7 @@ fn open_card(kind: CardKind, text: &str) -> Outcome {
         CardKind::Contact => "Contact.vcf",
         CardKind::Event => "Event.ics",
     };
-    let folder = std::env::temp_dir().join("Spotlight");
+    let folder = std::env::temp_dir().join("Loupe");
     let path = folder.join(name);
     std::fs::create_dir_all(&folder)
         .and_then(|()| std::fs::write(&path, text))
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn moves_a_file_to_the_recycle_bin() {
-        let path = std::env::temp_dir().join(format!("spotlight-trash-{}.txt", std::process::id()));
+        let path = std::env::temp_dir().join(format!("loupe-trash-{}.txt", std::process::id()));
         std::fs::write(&path, "x").unwrap();
         let outcome = run_blocking(&Command::MoveToTrash(path.to_string_lossy().into_owned()));
         assert_eq!(outcome, Ok(Some("Moved to Recycle Bin".into())));

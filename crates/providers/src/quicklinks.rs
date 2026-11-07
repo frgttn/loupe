@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
-use spotlight_core::{
+use loupe_core::{
     deeplink, favicon,
     item::{Action, Command, Icon, SearchItem, shortcut},
     item_id,
@@ -13,8 +13,8 @@ use spotlight_core::{
     view::{Field, FieldKind, FormView, ListView, View},
     web::SearchEngine,
 };
-use spotlight_platform_win::links::{self, Browser};
-use spotlight_store::Store;
+use loupe_platform_win::links::{self, Browser};
+use loupe_store::Store;
 
 use crate::glyph;
 
@@ -435,7 +435,7 @@ fn icon(link: &Quicklink) -> Icon {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_core::view::FieldValue;
+    use loupe_core::view::FieldValue;
 
     use super::*;
 

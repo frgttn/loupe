@@ -19,9 +19,9 @@ use windows::{
 const RUN_KEY: PCWSTR = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
 const APPROVED_KEY: PCWSTR =
     w!("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run");
-const VALUE: PCWSTR = w!("Spotlight");
+const VALUE: PCWSTR = w!("Loupe");
 
-/// Whether Spotlight is registered to start at login (from any path) and not
+/// Whether Loupe is registered to start at login (from any path) and not
 /// disabled in Task Manager.
 pub fn is_enabled() -> bool {
     let registered = unsafe {

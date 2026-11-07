@@ -9,11 +9,11 @@ use super::{
     views::Screen,
 };
 use gpui::{Context, Window};
-use spotlight_core::{
+use loupe_core::{
     item_id,
     quicklink::{self, Quicklink},
 };
-use spotlight_platform_win::links::{self, Browser};
+use loupe_platform_win::links::{self, Browser};
 
 /// The quicklinks provider's id, whose items these are.
 const PROVIDER: &str = "quicklinks";
@@ -126,7 +126,7 @@ impl Launcher {
         }
         if self.item_hotkeys.contains_key(&item) {
             if let Err(err) = self.hotkeys.set_item(&item, None) {
-                eprintln!("[spotlight] could not remove the hotkey of {item:?}: {err}");
+                eprintln!("[loupe] could not remove the hotkey of {item:?}: {err}");
             }
             self.hotkey_assigned(&item, None, cx);
         }
@@ -180,7 +180,7 @@ impl Launcher {
         let imported = match imported {
             Ok(imported) => imported,
             Err(err) => {
-                eprintln!("[spotlight] could not import quicklinks: {err}");
+                eprintln!("[loupe] could not import quicklinks: {err}");
                 return err;
             }
         };
@@ -188,7 +188,7 @@ impl Launcher {
         let skipped = imported.duplicates + imported.taken + imported.invalid;
         if skipped > 0 {
             eprintln!(
-                "[spotlight] import skipped {} already there, {} with a keyword in use, {} invalid",
+                "[loupe] import skipped {} already there, {} with a keyword in use, {} invalid",
                 imported.duplicates, imported.taken, imported.invalid
             );
         }

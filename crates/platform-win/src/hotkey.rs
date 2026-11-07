@@ -514,7 +514,7 @@ impl Registrar {
             Request::InterceptWinV(item, reply) => {
                 let result = match item {
                     Some(_) if self.current == Some(WIN_V) => {
-                        Err("Win+V already opens Spotlight".to_owned())
+                        Err("Win+V already opens Loupe".to_owned())
                     }
                     Some(_) if self.items.values().any(|&(_, held)| held == WIN_V) => {
                         Err("Win+V is already the hotkey of a command".to_owned())

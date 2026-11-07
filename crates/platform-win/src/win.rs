@@ -6,7 +6,7 @@
 
 use std::{ffi::c_void, mem::size_of};
 
-use spotlight_core::clip::IgnoredApp;
+use loupe_core::clip::IgnoredApp;
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, POINT, RECT},
@@ -47,7 +47,7 @@ fn hwnd(raw: isize) -> HWND {
 }
 
 /// The apps with a window on screen (as the taskbar would show them), each
-/// once, by name; not Spotlight. For choosing apps in Settings.
+/// once, by name; not Loupe. For choosing apps in Settings.
 pub fn apps_with_windows() -> Vec<IgnoredApp> {
     let windows = app_windows();
     let own = unsafe { GetCurrentProcessId() };
@@ -71,7 +71,7 @@ pub fn apps_with_windows() -> Vec<IgnoredApp> {
 }
 
 /// The windows a user would call an app's window (as the taskbar shows
-/// them), front to back, as raw HWNDs. Includes Spotlight's own.
+/// them), front to back, as raw HWNDs. Includes Loupe's own.
 pub(crate) fn app_windows() -> Vec<isize> {
     let mut windows: Vec<isize> = Vec::new();
     unsafe {

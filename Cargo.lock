@@ -3449,6 +3449,120 @@ dependencies = [
 ]
 
 [[package]]
+name = "loupe"
+version = "1.1.1"
+dependencies = [
+ "async-channel 2.5.0",
+ "embed-resource",
+ "gpui",
+ "loupe-core",
+ "loupe-platform-win",
+ "loupe-providers",
+ "loupe-qr",
+ "loupe-store",
+ "loupe-ui",
+ "raw-window-handle",
+ "tray-icon",
+ "velopack",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "loupe-core"
+version = "1.1.1"
+dependencies = [
+ "serde_json",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "loupe-files"
+version = "1.1.1"
+dependencies = [
+ "fst",
+ "neo_frizbee",
+]
+
+[[package]]
+name = "loupe-platform-win"
+version = "1.1.1"
+dependencies = [
+ "async-channel 2.5.0",
+ "image",
+ "loupe-core",
+ "loupe-files",
+ "windows 0.61.3",
+ "windows-numerics 0.2.0",
+]
+
+[[package]]
+name = "loupe-providers"
+version = "1.1.1"
+dependencies = [
+ "async-channel 2.5.0",
+ "fend-core",
+ "image",
+ "loupe-core",
+ "loupe-files",
+ "loupe-platform-win",
+ "loupe-qr",
+ "loupe-store",
+ "serde_json",
+]
+
+[[package]]
+name = "loupe-qr"
+version = "1.1.1"
+dependencies = [
+ "image",
+ "loupe-core",
+ "qrcode",
+ "rqrr",
+]
+
+[[package]]
+name = "loupe-search"
+version = "1.1.1"
+dependencies = [
+ "loupe-core",
+ "nucleo-matcher",
+]
+
+[[package]]
+name = "loupe-service"
+version = "1.1.1"
+dependencies = [
+ "loupe-files",
+ "loupe-platform-win",
+ "windows 0.61.3",
+]
+
+[[package]]
+name = "loupe-store"
+version = "1.1.1"
+dependencies = [
+ "loupe-core",
+ "rusqlite",
+]
+
+[[package]]
+name = "loupe-ui"
+version = "1.1.1"
+dependencies = [
+ "async-channel 2.5.0",
+ "gpui",
+ "image",
+ "loupe-core",
+ "loupe-platform-win",
+ "loupe-qr",
+ "loupe-search",
+ "loupe-store",
+ "pulldown-cmark",
+ "raw-window-handle",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "lru"
 version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5632,120 +5746,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eda41003dc44290527a59b13432d4a0379379fa074b70174882adfbdfd917844"
 dependencies = [
  "bitflags 2.13.2",
-]
-
-[[package]]
-name = "spotlight"
-version = "1.1.1"
-dependencies = [
- "async-channel 2.5.0",
- "embed-resource",
- "gpui",
- "raw-window-handle",
- "spotlight-core",
- "spotlight-platform-win",
- "spotlight-providers",
- "spotlight-qr",
- "spotlight-store",
- "spotlight-ui",
- "tray-icon",
- "velopack",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "spotlight-core"
-version = "1.1.1"
-dependencies = [
- "serde_json",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "spotlight-files"
-version = "1.1.1"
-dependencies = [
- "fst",
- "neo_frizbee",
-]
-
-[[package]]
-name = "spotlight-platform-win"
-version = "1.1.1"
-dependencies = [
- "async-channel 2.5.0",
- "image",
- "spotlight-core",
- "spotlight-files",
- "windows 0.61.3",
- "windows-numerics 0.2.0",
-]
-
-[[package]]
-name = "spotlight-providers"
-version = "1.1.1"
-dependencies = [
- "async-channel 2.5.0",
- "fend-core",
- "image",
- "serde_json",
- "spotlight-core",
- "spotlight-files",
- "spotlight-platform-win",
- "spotlight-qr",
- "spotlight-store",
-]
-
-[[package]]
-name = "spotlight-qr"
-version = "1.1.1"
-dependencies = [
- "image",
- "qrcode",
- "rqrr",
- "spotlight-core",
-]
-
-[[package]]
-name = "spotlight-search"
-version = "1.1.1"
-dependencies = [
- "nucleo-matcher",
- "spotlight-core",
-]
-
-[[package]]
-name = "spotlight-service"
-version = "1.1.1"
-dependencies = [
- "spotlight-files",
- "spotlight-platform-win",
- "windows 0.61.3",
-]
-
-[[package]]
-name = "spotlight-store"
-version = "1.1.1"
-dependencies = [
- "rusqlite",
- "spotlight-core",
-]
-
-[[package]]
-name = "spotlight-ui"
-version = "1.1.1"
-dependencies = [
- "async-channel 2.5.0",
- "gpui",
- "image",
- "pulldown-cmark",
- "raw-window-handle",
- "spotlight-core",
- "spotlight-platform-win",
- "spotlight-qr",
- "spotlight-search",
- "spotlight-store",
- "unicode-segmentation",
 ]
 
 [[package]]

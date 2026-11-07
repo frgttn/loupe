@@ -1,7 +1,7 @@
-//! `SPOTLIGHT_SELFTEST=1`: drives the real show/hide and text-input paths, prints
+//! `LOUPE_SELFTEST=1`: drives the real show/hide and text-input paths, prints
 //! a summary and quits. It injects presses into the same channel the hotkey
 //! thread feeds, so it skips only the OS's hotkey dispatch and key-event delivery.
-//! The script itself lives in `spotlight_platform_win::metrics::selftest`, unchanged
+//! The script itself lives in `loupe_platform_win::metrics::selftest`, unchanged
 //! since the GPUI/Slint comparison so the numbers stay comparable.
 
 use std::{
@@ -10,12 +10,12 @@ use std::{
 };
 
 use gpui::{App, AppContext, AsyncApp, Keystroke, WindowHandle};
-use spotlight_core::{
+use loupe_core::{
     item::Command,
     view::{Field, FieldKind, FieldValue, FormView, View},
 };
-use spotlight_platform_win::metrics::{self, selftest::*};
-use spotlight_ui::launcher::{Launcher, WindowMode};
+use loupe_platform_win::metrics::{self, selftest::*};
+use loupe_ui::launcher::{Launcher, WindowMode};
 
 pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
     let executor = cx.background_executor().clone();
@@ -216,7 +216,7 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
     // Run: after its prefix only Run's rows, the typed command first; a
     // command's name gets a row under the others. Nothing is run.
     let mut run_titles = Vec::new();
-    for query in [">cmd /k echo spotlight", "notepad"] {
+    for query in [">cmd /k echo loupe", "notepad"] {
         press(window, "ctrl-a", cx);
         window
             .update(cx, |launcher, window, cx| {
@@ -234,7 +234,7 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
     let by_name = run_titles[1].iter().any(|title| title == "Run notepad.exe");
     eprintln!(
         "[selftest] run: prefix -> {prefixed:?}, name row: {by_name} {}",
-        if prefixed == Some("Run “cmd /k echo spotlight”")
+        if prefixed == Some("Run “cmd /k echo loupe”")
             && run_titles[0]
                 .iter()
                 .all(|title| !title.contains("Search Google"))
@@ -323,7 +323,7 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
     }
 
     // Writes to the database, so only in a data folder of its own.
-    if env::var_os("SPOTLIGHT_DATA_DIR").is_some() {
+    if env::var_os("LOUPE_DATA_DIR").is_some() {
         let saved = quicklink_save_and_delete(window, cx).await;
         eprintln!(
             "[selftest] quicklink save: {saved} {}",
@@ -344,7 +344,7 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
         );
         // Pastes for real, so only when asked, and only into the window
         // named (a test harness's text box, as a hex HWND).
-        if let Some(target) = env::var("SPOTLIGHT_SELFTEST_PASTE")
+        if let Some(target) = env::var("LOUPE_SELFTEST_PASTE")
             .ok()
             .and_then(|hwnd| isize::from_str_radix(hwnd.trim_start_matches("0x"), 16).ok())
         {
@@ -454,7 +454,7 @@ async fn compact_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -
 /// opens it from the collapsed compact window. The favorites are put back
 /// after. Returns how far it got.
 async fn favorite_keys(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
-    const ITEM: &str = "spotlight:shortcuts";
+    const ITEM: &str = "loupe:shortcuts";
     let executor = cx.background_executor().clone();
     let saved = window
         .update(cx, |launcher, _, cx| {
@@ -735,7 +735,7 @@ async fn back_to_search(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Re
     }
 }
 
-/// A `spotlight://` link to Clipboard History, by its title's slug: the
+/// A `loupe://` link to Clipboard History, by its title's slug: the
 /// launcher shows just that command and asks, Enter opens it with the
 /// link's fallback text in the search field.
 /// Switch Windows lists the open windows, Search Processes this session's
@@ -862,8 +862,7 @@ async fn files_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> 
 }
 
 async fn deeplink_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
-    const LINK: &str =
-        "spotlight://extensions/spotlight/clipboard/clipboard-history?fallbackText=zzq";
+    const LINK: &str = "loupe://extensions/loupe/clipboard/clipboard-history?fallbackText=zzq";
     let executor = cx.background_executor().clone();
     window
         .update(cx, |launcher, window, cx| {
@@ -998,10 +997,10 @@ async fn detail_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) ->
 
 /// `qr <text>` in root search opens the code's view, and the code it draws
 /// is read back from a capture of the screen (only whether it's there is
-/// printed, nothing else the screen shows). `SPOTLIGHT_SELFTEST_HOLD=<ms>`
+/// printed, nothing else the screen shows). `LOUPE_SELFTEST_HOLD=<ms>`
 /// keeps the view open that long, for a look from outside.
 async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
-    const TEXT: &str = "https://example.com/spotlight-selftest";
+    const TEXT: &str = "https://example.com/loupe-selftest";
     if let Err(why) = open_from_search(window, &format!("qr {TEXT}"), "Generate QR Code", cx).await
     {
         return why;
@@ -1019,8 +1018,8 @@ async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Str
     let read = cx
         .background_executor()
         .spawn(async {
-            spotlight_platform_win::screen::capture()
-                .map(|screen| spotlight_qr::read(&screen).iter().any(|code| code == TEXT))
+            loupe_platform_win::screen::capture()
+                .map(|screen| loupe_qr::read(&screen).iter().any(|code| code == TEXT))
         })
         .await;
     let read = match read {
@@ -1033,7 +1032,7 @@ async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Str
     let wifi = "WIFI:S:Selftest Network;T:WPA;P:example-password;;";
     window
         .update(cx, |launcher, window, cx| {
-            launcher.open_view(spotlight_qr::view(wifi, true), window, cx)
+            launcher.open_view(loupe_qr::view(wifi, true), window, cx)
         })
         .ok();
     press(window, "ctrl-k", cx);
@@ -1049,7 +1048,7 @@ async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Str
     if actions.first().map(String::as_str) != Some("Connect to Network") {
         return format!("Wi-Fi code's actions: {actions:?}");
     }
-    if let Some(hold) = env::var("SPOTLIGHT_SELFTEST_HOLD")
+    if let Some(hold) = env::var("LOUPE_SELFTEST_HOLD")
         .ok()
         .and_then(|ms| ms.parse::<u64>().ok())
     {
@@ -1067,7 +1066,7 @@ async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Str
 
 /// A form with a text area: Enter starts a new line there instead of
 /// submitting, ↑ goes up a row, Ctrl+End to the end, and Ctrl+Enter submits
-/// (refused while it's empty, so nothing runs). `SPOTLIGHT_SELFTEST_HOLD=<ms>`
+/// (refused while it's empty, so nothing runs). `LOUPE_SELFTEST_HOLD=<ms>`
 /// keeps it open that long with a long wrapped line, for a look from outside.
 async fn text_area_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> String {
     let executor = cx.background_executor().clone();
@@ -1138,7 +1137,7 @@ async fn text_area_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp)
         return format!("↑ or Ctrl+End went wrong ({:?})", text(cx));
     }
 
-    if let Some(hold) = env::var("SPOTLIGHT_SELFTEST_HOLD")
+    if let Some(hold) = env::var("LOUPE_SELFTEST_HOLD")
         .ok()
         .and_then(|ms| ms.parse::<u64>().ok())
     {
@@ -1403,7 +1402,7 @@ async fn snippet_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -
     };
 
     // Export writes every snippet: the data folder may have its own.
-    let file = env::temp_dir().join(format!("spotlight-selftest-{}.json", std::process::id()));
+    let file = env::temp_dir().join(format!("loupe-selftest-{}.json", std::process::id()));
     let export = |cx: &mut AsyncApp| {
         window
             .update(cx, |launcher, _, _| launcher.export_snippets_to(&file))

@@ -1,6 +1,6 @@
-# Spotlight
+# Loupe
 
-A fast keyboard launcher for Windows, in the spirit of Raycast and macOS Spotlight. Written in pure Rust with [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui).
+A fast keyboard launcher for Windows, in the spirit of Raycast. Written in pure Rust with [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui).
 
 > **Status: early.** The stack is validated and the code is split into the workspace planned in [docs/architecture.md](docs/architecture.md). So far: global hotkey, prewarmed window, root search over apps and system commands with frecency, an inline calculator, URLs and web search, built-in latency and memory measurements.
 
@@ -21,7 +21,7 @@ A fast keyboard launcher for Windows, in the spirit of Raycast and macOS Spotlig
   - **Keywords:** `!` plus part of a keyword (`!g`) lists the quicklinks whose keyword starts with it, and Enter completes one to `!gh `. About 125 come preinstalled (search engines, dev docs, package registries, media, security and more; see `quicklink::DEFAULTS`) and can be edited or deleted; they stay out of root search, so reach them with `!keyword` or *Search Quicklinks*, while your own and edited ones are listed there as usual. *Create Quicklink* and Ctrl+K → *Edit Quicklink…* take a name, link, keyword and the browser to open it with (Default App or any browser registered on this PC).
   - **QR codes:** *Generate QR Code* (a form), `qr <text>`, *Generate QR Code from Selection* or *from Clipboard* shows a code for any text, with Copy Image, Save Image… (PNG) and Copy Text. *Scan QR Code from Screen* hides the launcher, captures every display and opens what the codes say (one code opens as it is, several are listed); *Scan QR Code from Clipboard* reads the copied image, or a copied picture file. What a code says is read for what it is: Wi-Fi networks (Connect to Network, which saves the network to Windows and joins it; Copy Password), contacts (Add to Contacts opens it as a vCard; Copy Phone Number, Send Email), emails, phone numbers (Call), text messages, places (Open in Maps) and events (Add to Calendar opens it as an .ics), with their details beside the code; links get Open Link. Images copied into clipboard history are read for QR codes when copied, so search finds a screenshot by its code's text, and the entry gets Show QR Code, Copy QR Code Text and Open QR Code Link. Both made and read with pure Rust ([qrcode](https://github.com/kennytm/qrcode-rust), [rqrr](https://github.com/WanzenBug/rqrr)); codes drawn light on dark are read too.
   - **Web search** for the query as the last row, with the engine chosen in Settings: Google (default), Bing, DuckDuckGo, Brave Search, Ecosia, Perplexity, or a custom results URL with `{query}` (Kagi, Startpage…).
-- **Frecency:** apps and commands you use often and recently rank higher, and with an empty query they are listed first. A launch counts half as much after a week. Settings → General → Rank by Usage turns this off (usage is still recorded, so turning it back on restores the order). Usage is stored in SQLite at `%APPDATA%\spotlight\spotlight.db`: SQLCipher, with the key in Windows Credential Manager (`Spotlight/database`); clipboard images next to it are encrypted too.
+- **Frecency:** apps and commands you use often and recently rank higher, and with an empty query they are listed first. A launch counts half as much after a week. Settings → General → Rank by Usage turns this off (usage is still recorded, so turning it back on restores the order). Usage is stored in SQLite at `%APPDATA%\loupe\loupe.db`: SQLCipher, with the key in Windows Credential Manager (`Loupe/database`); clipboard images next to it are encrypted too.
 - **Keys:** ↑/↓ or Ctrl+N/P to move, Enter or a click to run the primary action, Ctrl+Enter for the second one, Ctrl+, for settings, Ctrl+Q to quit.
 - **Action panel (Ctrl+K):** every action of the selected item. Apps: Open, Run as Administrator, Show in Explorer, Copy Path (Win32 apps with a file on disk), Uninstall… (opens Installed apps in Settings). Calculator: Copy Answer, Copy Calculation. URLs: Open, Copy URL. Anything you've used also gets Reset Ranking. Esc closes the panel; the footer shows what Enter does.
 - **Aliases:** Set Alias… in the panel gives an app or command a short name. Typing exactly that name puts it first (`vs` → Visual Studio Code); it also matches like a keyword. An alias belongs to one item: giving it to another moves it. Shown as a tag in the row.
@@ -30,19 +30,19 @@ A fast keyboard launcher for Windows, in the spirit of Raycast and macOS Spotlig
 - **Search field** edits like any Windows text box: Ctrl+←/→ moves by word, Shift selects (also with Home/End), Ctrl+Backspace / Ctrl+Delete delete a word, Ctrl+A/C/X/V, double click selects a word and triple click everything.
 - **Text input** with IME support.
 - **Icons:** real app icons from the shell, extracted in the background after startup (letter badges show until they arrive).
-- **Single instance:** launching Spotlight again (Start menu, a shortcut) opens the running instance instead of starting a second one.
+- **Single instance:** launching Loupe again (Start menu, a shortcut) opens the running instance instead of starting a second one.
 - **Tray icon:** left click opens the launcher; the menu has Open, Settings, Start at login, Check for Updates (Restart to Update once one is downloaded) and Quit.
-- **Settings window** (Ctrl+, in the launcher, the tray menu, or `spotlight.exe --settings`), frameless like the launcher: drag it by the header, close it with ✕ or Esc.
+- **Settings window** (Ctrl+, in the launcher, the tray menu, or `loupe.exe --settings`), frameless like the launcher: drag it by the header, close it with ✕ or Esc.
   - *Launcher hotkey:* click the field and press a combination. While recording, a low-level keyboard hook catches the keys, so a combination another app already owns is caught too and reported as taken; the old hotkey then stays. The choice is saved in the database.
   - *Smooth scrolling:* the result list animates to its new position when you move the selection or turn the mouse wheel (touchpad scrolling is already smooth and is left alone). On by default.
-  - *Search sources:* a switch for each provider (Applications, Settings Pages, Control Panel, Games, System Commands, Calculator, Quicklinks, Web Search and URLs, Spotlight Commands). A source that's off loads nothing (the calculator then fetches no exchange rates) and adds no results; turning it back on takes effect at once. A hotkey given to one of its items says in the HUD that the source is off. Saved as `disabled_providers`.
+  - *Search sources:* a switch for each provider (Applications, Settings Pages, Control Panel, Games, System Commands, Calculator, Quicklinks, Web Search and URLs, Loupe Commands). A source that's off loads nothing (the calculator then fetches no exchange rates) and adds no results; turning it back on takes effect at once. A hotkey given to one of its items says in the HUD that the source is off. Saved as `disabled_providers`.
   - *Start at login:* stored in the per-user `Run` registry key. Disabling it in Task Manager's Startup tab is respected. Also in the tray menu.
 
 The binary uses the Windows GUI subsystem, so no console window opens. Logs still go to the terminal it was started from.
 
 ## Install
 
-Download `Spotlight-win-Setup.exe` from the [latest release](https://github.com/frgttn/spotlight/releases/latest) and run it. It installs for your user into `%LocalAppData%\Spotlight` without an administrator prompt, adds Spotlight to the Start menu and turns on start at login. Updates download in the background; *Restart to Update* in the tray menu or Settings › About applies them, or the next start does. Uninstall from Windows Settings › Apps: that removes start at login, the `spotlight://` links and the file index service (with a UAC prompt) too, and keeps your data in `%APPDATA%\spotlight`.
+Download `Loupe-win-Setup.exe` from the [latest release](https://github.com/frgttn/loupe/releases/latest) and run it. It installs for your user into `%LocalAppData%\Loupe` without an administrator prompt, adds Loupe to the Start menu and turns on start at login. Updates download in the background; *Restart to Update* in the tray menu or Settings › About applies them, or the next start does. Uninstall from Windows Settings › Apps: that removes start at login, the `loupe://` links and the file index service (with a UAC prompt) too, and keeps your data in `%APPDATA%\loupe`.
 
 ## Requirements
 
@@ -60,21 +60,21 @@ Then press **Alt+Space** (or the hotkey you set).
 
 | Environment variable | Effect |
 |---|---|
-| `SPOTLIGHT_SHOW_ON_START=1` | Show the window immediately |
-| `SPOTLIGHT_SYNTHETIC=10000` | Add 10,000 filler rows (list performance test) |
-| `SPOTLIGHT_SELFTEST=1` | Run the scripted measurement, print a summary, quit (skips the single-instance check, so it can run next to a normal instance) |
-| `SPOTLIGHT_DATA_DIR=<dir>` | Keep the database in `<dir>` instead of `%APPDATA%\spotlight` |
+| `LOUPE_SHOW_ON_START=1` | Show the window immediately |
+| `LOUPE_SYNTHETIC=10000` | Add 10,000 filler rows (list performance test) |
+| `LOUPE_SELFTEST=1` | Run the scripted measurement, print a summary, quit (skips the single-instance check, so it can run next to a normal instance) |
+| `LOUPE_DATA_DIR=<dir>` | Keep the database in `<dir>` instead of `%APPDATA%\loupe` |
 
 The self-test flashes the window on screen for about 10 seconds, so don't type while it runs:
 
 ```bash
-SPOTLIGHT_SELFTEST=1 SPOTLIGHT_SYNTHETIC=10000 cargo run --release
+LOUPE_SELFTEST=1 LOUPE_SYNTHETIC=10000 cargo run --release
 ```
 
 GPUI's own memory floor (one window, one label):
 
 ```bash
-cargo run -p spotlight --example baseline --release
+cargo run -p loupe --example baseline --release
 ```
 
 Results and the reasoning behind choosing GPUI: [docs/ui-framework-decision.md](docs/ui-framework-decision.md).
@@ -91,7 +91,7 @@ Results and the reasoning behind choosing GPUI: [docs/ui-framework-decision.md](
 
 | Path | What |
 |---|---|
-| `crates/app` | The `spotlight` binary: wiring, window lifecycle, tray icon, self-test, GPUI baseline example |
+| `crates/app` | The `loupe` binary: wiring, window lifecycle, tray icon, self-test, GPUI baseline example |
 | `crates/ui` | GPUI views: launcher (search field, result list, metrics footer), settings and text input |
 | `crates/core` | Domain types: `SearchItem`, actions and commands, the `Provider` trait, frecency |
 | `crates/search` | Root search: merges providers; ranking by fuzzy score (title and keywords), prefix bonus, frecency |
@@ -100,7 +100,7 @@ Results and the reasoning behind choosing GPUI: [docs/ui-framework-decision.md](
 | `crates/qr` | QR codes: made from text (`qrcode`), read from images (`rqrr`), and the views that show them |
 | `crates/store` | SQLCipher (`rusqlite`, bundled; encrypted SQLite): settings, frecency, clipboard history, snippets, quicklinks, with schema migrations |
 | `crates/platform-win` | Windows code: hotkey thread, single instance, app discovery and icons, running commands (launch, open URL, system commands), autostart, window placement, folder listing and change watching for the file index, NTFS MFT and USN journal reading, the index service's protocol, measurements |
-| `crates/service` | `spotlight-service.exe`, the optional file index service: reads NTFS file tables and change journals as LocalSystem, keeps sealed snapshots, serves the launcher over a named pipe with caller and access checks |
+| `crates/service` | `loupe-service.exe`, the optional file index service: reads NTFS file tables and change journals as LocalSystem, keeps sealed snapshots, serves the launcher over a named pipe with caller and access checks |
 | `vendor/libsqlite3-sys` | `libsqlite3-sys` patched so SQLCipher uses Windows CNG instead of OpenSSL (`sqlcipher/crypto_cng.c`); no OpenSSL or Perl needed to build |
 | `docs/` | Architecture plan and the UI framework decision |
 
@@ -117,4 +117,4 @@ at your option.
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for inclusion in this work, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
 
-"Spotlight" is a trademark of Apple Inc. This project is not affiliated with Apple or Raycast.
+This project is not affiliated with Raycast.

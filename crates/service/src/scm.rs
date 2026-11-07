@@ -1,10 +1,10 @@
 //! The service's place in Windows: installing and removing it (from an
-//! elevated `spotlight-service.exe install`), and running as one under the
+//! elevated `loupe-service.exe install`), and running as one under the
 //! Service Control Manager.
 //!
-//! Installing copies the executable to `%ProgramFiles%\Spotlight`, so what
+//! Installing copies the executable to `%ProgramFiles%\Loupe`, so what
 //! runs as LocalSystem is a file only administrators can replace, and keeps
-//! its data in `%ProgramData%\Spotlight`, for SYSTEM and Administrators only.
+//! its data in `%ProgramData%\Loupe`, for SYSTEM and Administrators only.
 
 use std::{
     env, fs,
@@ -14,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spotlight_platform_win::{index_service, ntfs};
+use loupe_platform_win::{index_service, ntfs};
 use windows::{
     Win32::{
         Foundation::{CloseHandle, ERROR_SERVICE_ALREADY_RUNNING, HANDLE, HLOCAL, LocalFree},
@@ -59,31 +59,31 @@ use crate::{
     volume::Source,
 };
 
-const DISPLAY_NAME: &str = "Spotlight File Index";
-const DESCRIPTION: &str = "Keeps Spotlight's file search current from the NTFS change journal. Only Spotlight can ask it, and only about folders its user can open.";
-/// Under the service's registry key: the Spotlight executables allowed to
+const DISPLAY_NAME: &str = "Loupe File Index";
+const DESCRIPTION: &str = "Keeps Loupe's file search current from the NTFS change journal. Only Loupe can ask it, and only about folders its user can open.";
+/// Under the service's registry key: the Loupe executables allowed to
 /// connect, one path per line.
-const PARAMETERS: &str = r"SYSTEM\CurrentControlSet\Services\SpotlightIndex\Parameters";
+const PARAMETERS: &str = r"SYSTEM\CurrentControlSet\Services\LoupeIndex\Parameters";
 const CLIENTS_VALUE: &str = "Clients";
 /// SYSTEM and Administrators only, not inherited from `%ProgramData%`.
 const DATA_SDDL: &str = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
 
 pub fn install_dir() -> PathBuf {
     PathBuf::from(env::var_os("ProgramFiles").unwrap_or_else(|| r"C:\Program Files".into()))
-        .join("Spotlight")
+        .join("Loupe")
 }
 
 pub fn data_dir() -> PathBuf {
     PathBuf::from(env::var_os("ProgramData").unwrap_or_else(|| r"C:\ProgramData".into()))
-        .join("Spotlight")
+        .join("Loupe")
 }
 
 /// Installs (or updates) the service and starts it. `client` is the
-/// Spotlight executable allowed to connect. Needs administrator rights.
+/// Loupe executable allowed to connect. Needs administrator rights.
 pub fn install(client: &Path) -> Result<(), String> {
     let source = env::current_exe().map_err(|err| err.to_string())?;
     let target_dir = install_dir();
-    let target = target_dir.join("spotlight-service.exe");
+    let target = target_dir.join("loupe-service.exe");
     let data = data_dir();
     fs::create_dir_all(&data).map_err(|err| format!("{}: {err}", data.display()))?;
     secure(&data)?;
@@ -174,7 +174,7 @@ pub fn uninstall() -> Result<(), String> {
         let _ = CloseServiceHandle(manager);
     }
     let _ = fs::remove_dir_all(data_dir());
-    let target = install_dir().join("spotlight-service.exe");
+    let target = install_dir().join("loupe-service.exe");
     if env::current_exe().ok().as_deref() != Some(target.as_path()) {
         let _ = fs::remove_file(&target);
         let _ = fs::remove_dir(install_dir());

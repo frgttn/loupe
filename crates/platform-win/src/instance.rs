@@ -1,6 +1,6 @@
 //! Single instance: a named mutex decides which process is the primary one, and
 //! a named pipe lets later launches hand it a message ([`SHOW`] or
-//! [`SETTINGS`], or a `spotlight://` link).
+//! [`SETTINGS`], or a `loupe://` link).
 //!
 //! Both names are per user and per Windows session, so two users on one
 //! machine (or one user in two RDP sessions) each get their own launcher.
@@ -189,7 +189,7 @@ fn receive(pipe: HANDLE) -> Option<String> {
     }
 }
 
-/// `spotlight.<user>.<session>`, shared by the mutex and the pipe.
+/// `loupe.<user>.<session>`, shared by the mutex and the pipe.
 fn base_name() -> String {
     let user = std::env::var("USERNAME").unwrap_or_default();
     let mut session = 0;
@@ -202,7 +202,7 @@ fn base_name() -> String {
         .chars()
         .map(|ch| if ch.is_alphanumeric() { ch } else { '_' })
         .collect();
-    format!("spotlight.{user}.{session}")
+    format!("loupe.{user}.{session}")
 }
 
 fn pipe_name() -> HSTRING {

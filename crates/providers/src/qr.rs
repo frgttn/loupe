@@ -1,16 +1,16 @@
 //! QR codes: Generate QR Code (a form, or `qr <text>` typed in root search)
 //! and scanning the screen or the clipboard's image for codes. The launcher
-//! draws the code and does the scanning (see `spotlight_qr`).
+//! draws the code and does the scanning (see `loupe_qr`).
 
-use spotlight_core::{
+use loupe_core::{
     item::{CLIPBOARD, Command, Icon, QrSource, SELECTION, SearchItem},
     item_id,
     provider::Provider,
     view::{Field, FieldKind, FormView, View},
 };
-use spotlight_qr::GLYPH;
+use loupe_qr::GLYPH;
 
-pub use spotlight_qr::ID;
+pub use loupe_qr::ID;
 
 /// Typed before the text in root search: `qr https://example.com`.
 const PREFIX: &str = "qr ";
@@ -96,7 +96,7 @@ impl Provider for Qr {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_core::view::FieldValue;
+    use loupe_core::view::FieldValue;
 
     use super::*;
 

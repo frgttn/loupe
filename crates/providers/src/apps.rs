@@ -1,12 +1,12 @@
 //! Installed apps, Win32 and MSIX alike, from the shell's `AppsFolder`.
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem, shortcut},
     item_id,
     provider::Provider,
     view::{DetailView, ListView, View},
 };
-use spotlight_platform_win::apps;
+use loupe_platform_win::apps;
 
 use crate::glyph;
 
