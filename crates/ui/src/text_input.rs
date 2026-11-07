@@ -71,37 +71,65 @@ const NEWLINE_WIDTH: f32 = 5.;
 const TEXT_INSET: f32 = 3.;
 const CURSOR_WIDTH: f32 = 2.;
 
+/// What moves and deletes by word: Ctrl on Windows and Linux, Option on macOS.
+#[cfg(not(target_os = "macos"))]
+const WORD: &str = "ctrl";
+#[cfg(target_os = "macos")]
+const WORD: &str = "alt";
+
+/// What jumps to the start or end of all the text: Ctrl+Home/End on Windows
+/// and Linux, Cmd+↑/↓ on macOS (its keyboards mostly have no Home and End).
+/// The modifier, then the keys for the start and the end.
+#[cfg(not(target_os = "macos"))]
+const DOCUMENT: (&str, [&str; 2]) = ("ctrl", ["home", "end"]);
+#[cfg(target_os = "macos")]
+const DOCUMENT: (&str, [&str; 2]) = ("cmd", ["up", "down"]);
+
 pub fn bind_keys(cx: &mut App) {
+    let (document, [start, end]) = DOCUMENT;
     cx.bind_keys([
         KeyBinding::new("backspace", Backspace, Some(CONTEXT)),
         // Binding it also stops Windows' Ctrl+Backspace DEL (0x7F) char from being typed.
-        KeyBinding::new("ctrl-backspace", DeleteWordLeft, Some(CONTEXT)),
+        KeyBinding::new(&format!("{WORD}-backspace"), DeleteWordLeft, Some(CONTEXT)),
         KeyBinding::new("delete", Delete, Some(CONTEXT)),
-        KeyBinding::new("ctrl-delete", DeleteWordRight, Some(CONTEXT)),
+        KeyBinding::new(&format!("{WORD}-delete"), DeleteWordRight, Some(CONTEXT)),
         KeyBinding::new("left", Left, Some(CONTEXT)),
         KeyBinding::new("right", Right, Some(CONTEXT)),
-        KeyBinding::new("ctrl-left", WordLeft, Some(CONTEXT)),
-        KeyBinding::new("ctrl-right", WordRight, Some(CONTEXT)),
+        KeyBinding::new(&format!("{WORD}-left"), WordLeft, Some(CONTEXT)),
+        KeyBinding::new(&format!("{WORD}-right"), WordRight, Some(CONTEXT)),
         KeyBinding::new("shift-left", SelectLeft, Some(CONTEXT)),
         KeyBinding::new("shift-right", SelectRight, Some(CONTEXT)),
-        KeyBinding::new("ctrl-shift-left", SelectWordLeft, Some(CONTEXT)),
-        KeyBinding::new("ctrl-shift-right", SelectWordRight, Some(CONTEXT)),
-        KeyBinding::new("ctrl-a", SelectAll, Some(CONTEXT)),
-        KeyBinding::new("ctrl-v", Paste, Some(CONTEXT)),
+        KeyBinding::new(&format!("{WORD}-shift-left"), SelectWordLeft, Some(CONTEXT)),
+        KeyBinding::new(
+            &format!("{WORD}-shift-right"),
+            SelectWordRight,
+            Some(CONTEXT),
+        ),
+        // `secondary` is Ctrl on Windows and Linux, Cmd on macOS.
+        KeyBinding::new("secondary-a", SelectAll, Some(CONTEXT)),
+        KeyBinding::new("secondary-v", Paste, Some(CONTEXT)),
         KeyBinding::new("shift-insert", Paste, Some(CONTEXT)),
-        KeyBinding::new("ctrl-c", Copy, Some(CONTEXT)),
+        KeyBinding::new("secondary-c", Copy, Some(CONTEXT)),
         KeyBinding::new("ctrl-insert", Copy, Some(CONTEXT)),
-        KeyBinding::new("ctrl-x", Cut, Some(CONTEXT)),
+        KeyBinding::new("secondary-x", Cut, Some(CONTEXT)),
         KeyBinding::new("shift-delete", Cut, Some(CONTEXT)),
-        // Home/End: the start or end of the row; with Ctrl, of all the text.
+        // Home/End: the start or end of the row; `DOCUMENT`: of all the text.
         KeyBinding::new("home", Home, Some(CONTEXT)),
-        KeyBinding::new("ctrl-home", DocumentStart, Some(CONTEXT)),
+        KeyBinding::new(&format!("{document}-{start}"), DocumentStart, Some(CONTEXT)),
         KeyBinding::new("end", End, Some(CONTEXT)),
-        KeyBinding::new("ctrl-end", DocumentEnd, Some(CONTEXT)),
+        KeyBinding::new(&format!("{document}-{end}"), DocumentEnd, Some(CONTEXT)),
         KeyBinding::new("shift-home", SelectToHome, Some(CONTEXT)),
-        KeyBinding::new("ctrl-shift-home", SelectToDocumentStart, Some(CONTEXT)),
+        KeyBinding::new(
+            &format!("{document}-shift-{start}"),
+            SelectToDocumentStart,
+            Some(CONTEXT),
+        ),
         KeyBinding::new("shift-end", SelectToEnd, Some(CONTEXT)),
-        KeyBinding::new("ctrl-shift-end", SelectToDocumentEnd, Some(CONTEXT)),
+        KeyBinding::new(
+            &format!("{document}-shift-{end}"),
+            SelectToDocumentEnd,
+            Some(CONTEXT),
+        ),
         // Only in a multiline input; elsewhere they reach the views around it.
         KeyBinding::new("enter", Newline, Some(MULTILINE_CONTEXT)),
         KeyBinding::new("shift-enter", Newline, Some(MULTILINE_CONTEXT)),
@@ -109,6 +137,14 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("down", Down, Some(MULTILINE_CONTEXT)),
         KeyBinding::new("shift-up", SelectUp, Some(MULTILINE_CONTEXT)),
         KeyBinding::new("shift-down", SelectDown, Some(MULTILINE_CONTEXT)),
+    ]);
+    // macOS also takes Cmd+←/→ for the start and end of the row.
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
+        KeyBinding::new("cmd-left", Home, Some(CONTEXT)),
+        KeyBinding::new("cmd-right", End, Some(CONTEXT)),
+        KeyBinding::new("cmd-shift-left", SelectToHome, Some(CONTEXT)),
+        KeyBinding::new("cmd-shift-right", SelectToEnd, Some(CONTEXT)),
     ]);
 }
 

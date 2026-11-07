@@ -149,39 +149,40 @@ impl Action {
 
 /// Key combinations for actions, named and chosen as Raycast's for Windows
 /// are, so the same action has the same keys in both. The first two actions
-/// are always Enter and Ctrl+Enter, whatever they ask for.
+/// are always Enter and Ctrl+Enter, whatever they ask for. `secondary` is
+/// Ctrl on Windows and Linux, Cmd on macOS.
 pub mod shortcut {
     /// Copies the main thing: a file, a URL.
-    pub const COPY: &str = "ctrl-shift-c";
+    pub const COPY: &str = "secondary-shift-c";
     /// Copies something about it: a name.
-    pub const COPY_SECONDARY: &str = "ctrl-alt-c";
+    pub const COPY_SECONDARY: &str = "secondary-alt-c";
     /// Copies something else about it: a path.
     pub const COPY_TERTIARY: &str = "alt-shift-c";
-    pub const COPY_DEEPLINK: &str = "ctrl-shift-c";
+    pub const COPY_DEEPLINK: &str = "secondary-shift-c";
     /// Opens it somewhere else: Open With.
-    pub const OPEN: &str = "ctrl-o";
+    pub const OPEN: &str = "secondary-o";
     /// Shows where it is: Show in Explorer.
-    pub const OPEN_SECONDARY: &str = "ctrl-shift-o";
+    pub const OPEN_SECONDARY: &str = "secondary-shift-o";
     /// A third way to run it: Run as Administrator.
-    pub const TERTIARY: &str = "ctrl-shift-enter";
+    pub const TERTIARY: &str = "secondary-shift-enter";
     /// A fourth: Open in Terminal.
-    pub const QUATERNARY: &str = "ctrl-alt-enter";
+    pub const QUATERNARY: &str = "secondary-alt-enter";
     /// Deletes it.
-    pub const CLEAR: &str = "ctrl-d";
+    pub const CLEAR: &str = "secondary-d";
     /// Deletes all of them.
-    pub const CLEAR_ALL: &str = "ctrl-alt-d";
-    pub const EDIT: &str = "ctrl-e";
+    pub const CLEAR_ALL: &str = "secondary-alt-d";
+    pub const EDIT: &str = "secondary-e";
     /// Creates something from it: a quicklink.
-    pub const SAVE: &str = "ctrl-s";
-    pub const PIN: &str = "ctrl-.";
+    pub const SAVE: &str = "secondary-s";
+    pub const PIN: &str = "secondary-.";
     /// Shows more about it: Show Details.
-    pub const INFO: &str = "ctrl-i";
+    pub const INFO: &str = "secondary-i";
     /// Adds it to (or removes it from) the favorites.
-    pub const FAVORITE: &str = "ctrl-shift-f";
+    pub const FAVORITE: &str = "secondary-shift-f";
     /// Pastes it another way: as plain text.
-    pub const PASTE_PLAIN: &str = "ctrl-shift-v";
+    pub const PASTE_PLAIN: &str = "secondary-shift-v";
     /// Shows a list as a grid, or a grid as a list.
-    pub const LAYOUT: &str = "ctrl-shift-g";
+    pub const LAYOUT: &str = "secondary-shift-g";
 }
 
 /// What an action does. A closed set of safe operations: providers describe

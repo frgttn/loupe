@@ -143,8 +143,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("up", SelectPrev, Some(CONTEXT)),
         KeyBinding::new("ctrl-p", SelectPrev, Some(CONTEXT)),
         KeyBinding::new("enter", Confirm, Some(CONTEXT)),
-        KeyBinding::new("ctrl-enter", SecondaryAction, Some(CONTEXT)),
-        KeyBinding::new("ctrl-k", ToggleActions, Some(CONTEXT)),
+        KeyBinding::new("secondary-enter", SecondaryAction, Some(CONTEXT)),
+        KeyBinding::new("secondary-k", ToggleActions, Some(CONTEXT)),
         KeyBinding::new("escape", Dismiss, Some(CONTEXT)),
         KeyBinding::new("tab", FocusNextField, Some(CONTEXT)),
         KeyBinding::new("shift-tab", FocusPrevField, Some(CONTEXT)),
@@ -152,10 +152,10 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("right", NextChoice, Some(CHOICE_CONTEXT)),
         KeyBinding::new("left", PrevChoice, Some(CHOICE_CONTEXT)),
         KeyBinding::new("space", ToggleChoice, Some(CHOICE_CONTEXT)),
-        KeyBinding::new("ctrl-q", Quit, None),
+        KeyBinding::new("secondary-q", Quit, None),
         KeyBinding::new(shortcut::LAYOUT, ToggleLayout, Some(CONTEXT)),
         // Not handled here: it bubbles up to the app, which owns the settings window.
-        KeyBinding::new("ctrl-,", OpenSettings, Some(CONTEXT)),
+        KeyBinding::new("secondary-,", OpenSettings, Some(CONTEXT)),
     ]);
 }
 
@@ -3648,7 +3648,8 @@ impl Launcher {
             .enumerate()
             .map(|(ix, item)| {
                 let id = item.id.clone();
-                let title = SharedString::from(format!("{}  ·  Ctrl+{}", item.title, ix + 1));
+                let title =
+                    SharedString::from(format!("{}  ·  {SECONDARY}+{}", item.title, ix + 1));
                 div()
                     .id(("favorite", ix))
                     .flex_none()
@@ -3686,7 +3687,7 @@ impl Launcher {
             .collect()
     }
 
-    /// Ctrl+1 to Ctrl+8 in the collapsed compact window, where the
+    /// Ctrl+1 to Ctrl+8 (Cmd on macOS) in the collapsed compact window, where the
     /// favorites' icons are: runs that favorite. Whether the key was one.
     fn run_quick_favorite(
         &mut self,
@@ -3695,7 +3696,13 @@ impl Launcher {
         cx: &mut Context<Self>,
     ) -> bool {
         let modifiers = pressed.modifiers;
-        if !modifiers.control || modifiers.alt || modifiers.shift || modifiers.platform {
+        // `secondary` is Ctrl, or Cmd on macOS; the other one must be up.
+        let other = if cfg!(target_os = "macos") {
+            modifiers.control
+        } else {
+            modifiers.platform
+        };
+        if !modifiers.secondary() || modifiers.alt || modifiers.shift || other {
             return false;
         }
         let Some(ix) = pressed
@@ -3910,7 +3917,7 @@ impl Launcher {
                     .into_iter()
                     .next()
                     .map(|action| SharedString::from(action.title)),
-                "Enter",
+                "Enter".to_owned(),
             ),
         };
         let has_actions = !self.selected_actions().is_empty();
@@ -3927,7 +3934,7 @@ impl Launcher {
                             .items_center()
                             .gap_1()
                             .child(div().text_color(rgba(theme::p().text)).child(primary))
-                            .child(keycaps(primary_keys)),
+                            .child(keycaps(&primary_keys)),
                     )
                     .when(has_actions, |hints| {
                         hints.child(
@@ -3936,7 +3943,7 @@ impl Launcher {
                                 .items_center()
                                 .gap_1()
                                 .child("Actions")
-                                .child(keycaps("Ctrl K")),
+                                .child(keycaps(&keys_label("secondary-k"))),
                         )
                     })
             })
@@ -4513,16 +4520,16 @@ const PANEL_ROWS: f32 = 9.;
 /// asking for one of them gets none.
 const RESERVED_KEYS: &[&str] = &[
     "enter",
-    "ctrl-enter",
-    "ctrl-k",
+    "secondary-enter",
+    "secondary-k",
     "ctrl-n",
     "ctrl-p",
-    "ctrl-q",
-    "ctrl-,",
-    "ctrl-a",
-    "ctrl-c",
-    "ctrl-v",
-    "ctrl-x",
+    "secondary-q",
+    "secondary-,",
+    "secondary-a",
+    "secondary-c",
+    "secondary-v",
+    "secondary-x",
 ];
 
 /// The keys each action runs with besides the panel: the ones it asks for,
@@ -4548,7 +4555,7 @@ fn own_keys(entries: &[Entry]) -> Vec<Option<String>> {
 /// [`own_keys`].
 fn entry_keys(entries: &[Entry]) -> Vec<Option<String>> {
     let mut keys = own_keys(entries);
-    for (ix, shown) in ["enter", "ctrl-enter"].into_iter().enumerate() {
+    for (ix, shown) in ["enter", "secondary-enter"].into_iter().enumerate() {
         if let Some(keys) = keys.get_mut(ix) {
             *keys = Some(shown.to_owned());
         }
@@ -4556,13 +4563,27 @@ fn entry_keys(entries: &[Entry]) -> Vec<Option<String>> {
     keys
 }
 
-/// `ctrl-shift-c` as the keycaps show it: `Ctrl Shift C`.
+/// How the keycaps name `secondary`: Ctrl on Windows and Linux, Cmd on macOS.
+#[cfg(not(target_os = "macos"))]
+const SECONDARY: &str = "Ctrl";
+#[cfg(target_os = "macos")]
+const SECONDARY: &str = "⌘";
+
+/// `secondary-shift-c` as the keycaps show it: `Ctrl Shift C`, or with
+/// macOS's symbols there (`⌘ ⇧ C`).
 fn keys_label(keys: &str) -> String {
+    let mac = cfg!(target_os = "macos");
     keys.split('-')
         .map(|key| match key {
+            "secondary" => SECONDARY.to_owned(),
+            "cmd" => "⌘".to_owned(),
+            "ctrl" if mac => "⌃".to_owned(),
             "ctrl" => "Ctrl".to_owned(),
+            "alt" if mac => "⌥".to_owned(),
             "alt" => "Alt".to_owned(),
+            "shift" if mac => "⇧".to_owned(),
             "shift" => "Shift".to_owned(),
+            "enter" if mac => "↩".to_owned(),
             "enter" => "Enter".to_owned(),
             key => key.to_uppercase(),
         })
@@ -4668,10 +4689,10 @@ mod tests {
             shortcut: keys.map(str::to_owned),
         };
         let entries = [
-            entry("Open", Some("ctrl-o")),
+            entry("Open", Some("secondary-o")),
             entry("Run as Administrator", Some(shortcut::TERTIARY)),
             entry("Copy Path", Some(shortcut::COPY_TERTIARY)),
-            entry("Select All", Some("ctrl-a")),
+            entry("Select All", Some("secondary-a")),
             entry("Reset Ranking", None),
             entry("Copy File", Some(shortcut::COPY)),
             entry("Copy Deeplink", Some(shortcut::COPY_DEEPLINK)),
@@ -4681,12 +4702,12 @@ mod tests {
             keys.iter().map(Option::as_deref).collect::<Vec<_>>(),
             [
                 Some("enter"),
-                Some("ctrl-enter"),
+                Some("secondary-enter"),
                 Some("alt-shift-c"),
                 // The search field's Select All, and taken by Copy File.
                 None,
                 None,
-                Some("ctrl-shift-c"),
+                Some("secondary-shift-c"),
                 None,
             ]
         );
@@ -4694,13 +4715,23 @@ mod tests {
         assert_eq!(
             own_keys(&entries)[..2],
             [
-                Some("ctrl-o".to_owned()),
-                Some("ctrl-shift-enter".to_owned())
+                Some("secondary-o".to_owned()),
+                Some("secondary-shift-enter".to_owned())
             ]
         );
-        assert_eq!(keys_label("ctrl-shift-c"), "Ctrl Shift C");
-        assert_eq!(keys_label("ctrl-alt-enter"), "Ctrl Alt Enter");
-        assert_eq!(keys_label("ctrl-."), "Ctrl .");
+        #[cfg(not(target_os = "macos"))]
+        {
+            assert_eq!(keys_label("secondary-shift-c"), "Ctrl Shift C");
+            assert_eq!(keys_label("secondary-alt-enter"), "Ctrl Alt Enter");
+            assert_eq!(keys_label("secondary-."), "Ctrl .");
+            assert_eq!(keys_label("ctrl-n"), "Ctrl N");
+        }
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(keys_label("secondary-shift-c"), "⌘ ⇧ C");
+            assert_eq!(keys_label("secondary-alt-enter"), "⌘ ⌥ ↩");
+            assert_eq!(keys_label("ctrl-n"), "⌃ N");
+        }
     }
 
     #[test]
