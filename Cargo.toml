@@ -52,6 +52,8 @@ unicode-segmentation = "1"
 velopack = "=1.3.39-g8d2844f"
 # Same major as gpui 0.2.2 uses, so there is only one copy of the bindings.
 windows = "0.61"
+# Direct2D's point and matrix types; the version windows 0.61 uses.
+windows-numerics = "0.2"
 
 # libsqlite3-sys with one change: on Windows, SQLCipher's crypto comes from
 # CNG (bcrypt.dll, `sqlcipher/crypto_cng.c`) instead of OpenSSL, so building

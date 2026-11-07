@@ -5678,6 +5678,7 @@ dependencies = [
  "spotlight-core",
  "spotlight-files",
  "windows 0.61.3",
+ "windows-numerics 0.2.0",
 ]
 
 [[package]]

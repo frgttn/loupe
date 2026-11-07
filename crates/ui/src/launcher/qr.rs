@@ -138,30 +138,45 @@ impl Launcher {
                         Ok::<_, String>(spotlight_qr::read(&image))
                     })
                     .await;
+            let none = match source {
+                QrSource::Screen => "No QR codes on the screen",
+                QrSource::Clipboard => "No QR codes in the image",
+            };
             this.update_in(cx, |this, window, cx| {
-                let message = match scanned.as_deref() {
-                    Ok(codes) => match spotlight_qr::scanned_view(codes) {
-                        Some(view) => {
-                            if !this.visible {
-                                this.show(Instant::now(), window, cx);
-                            }
-                            return this.push_view(view, window, cx);
-                        }
-                        None if source == QrSource::Screen => "No QR codes on the screen",
-                        None => "No QR codes in the image",
-                    }
-                    .to_owned(),
-                    Err(err) => err.clone(),
-                };
-                if this.visible {
-                    this.show_toast(message.into(), cx);
-                } else {
-                    this.show_hud(message.into(), cx);
-                }
+                this.show_scanned_codes(scanned, none, window, cx)
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Opens what the scanned codes say (showing the launcher if it's
+    /// hidden), or says there were none (`none`) or why scanning failed: in
+    /// the HUD, or in a toast while the launcher is up.
+    pub(super) fn show_scanned_codes(
+        &mut self,
+        scanned: Result<Vec<String>, String>,
+        none: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let message = match scanned {
+            Ok(codes) => match spotlight_qr::scanned_view(&codes) {
+                Some(view) => {
+                    if !self.visible {
+                        self.show(Instant::now(), window, cx);
+                    }
+                    return self.push_view(view, window, cx);
+                }
+                None => none.to_owned(),
+            },
+            Err(err) => err,
+        };
+        if self.visible {
+            self.show_toast(message.into(), cx);
+        } else {
+            self.show_hud(message.into(), cx);
+        }
     }
 
     /// The image of the code `text` for the open view, and its size, made at
