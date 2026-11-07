@@ -14,11 +14,16 @@ image = { workspace = true, features = ["png"] }
 loupe-core.workspace = true
 loupe-files.workspace = true
 raw-window-handle.workspace = true
+# AES-256-GCM, HMAC-SHA256 and random bytes for the vault. Already built
+# for rustls, so nothing new comes in; it works on Linux too.
+ring = "0.17"
 
 # AppKit, for the launcher's window. The same crates (and the same way of
 # picking features) as tray-icon, so nothing new comes in.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
+# The Keychain, for the database key. Already built for rustls-native-certs.
+security-framework = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies.objc2-app-kit]
 version = "0.3"
