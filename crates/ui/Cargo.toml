@@ -14,7 +14,6 @@ gpui.workspace = true
 # Decoding clipboard images for the preview.
 image = { workspace = true, features = ["png"] }
 pulldown-cmark.workspace = true
-raw-window-handle.workspace = true
 loupe-core.workspace = true
 loupe-platform.workspace = true
 loupe-qr.workspace = true

@@ -343,10 +343,10 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
             }
         );
         // Pastes for real, so only when asked, and only into the window
-        // named (a test harness's text box, as a hex HWND).
+        // named (a test harness's text box, as a hex window handle).
         if let Some(target) = env::var("LOUPE_SELFTEST_PASTE")
             .ok()
-            .and_then(|hwnd| isize::from_str_radix(hwnd.trim_start_matches("0x"), 16).ok())
+            .and_then(|handle| isize::from_str_radix(handle.trim_start_matches("0x"), 16).ok())
         {
             let pasted = snippet_paste(window, target, cx).await;
             eprintln!("[selftest] snippet paste: {pasted}");

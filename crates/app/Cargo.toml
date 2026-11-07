@@ -16,7 +16,6 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 [dependencies]
 async-channel.workspace = true
 gpui.workspace = true
-raw-window-handle.workspace = true
 loupe-core.workspace = true
 loupe-platform.workspace = true
 loupe-providers.workspace = true

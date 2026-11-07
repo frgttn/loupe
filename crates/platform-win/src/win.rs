@@ -3,10 +3,15 @@
 //!
 //! UI frameworks generally have no "hide but keep everything alive" call, so the
 //! launcher takes the HWND and drives visibility and placement directly.
+//!
+//! Window handles leave this crate as plain `isize` (an HWND here), got from
+//! the UI's window with [`native_handle`], so callers never match on a
+//! Win32 handle themselves.
 
 use std::{ffi::c_void, mem::size_of};
 
 use loupe_core::clip::IgnoredApp;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, POINT, RECT},
@@ -48,6 +53,15 @@ fn hwnd(raw: isize) -> HWND {
 
 /// The apps with a window on screen (as the taskbar would show them), each
 /// once, by name; not Loupe. For choosing apps in Settings.
+/// The OS handle of a window the UI made (its HWND), for the other calls in
+/// this crate. `None` if it isn't a Win32 window.
+pub fn native_handle(window: &impl HasWindowHandle) -> Option<isize> {
+    match window.window_handle().ok()?.as_raw() {
+        RawWindowHandle::Win32(handle) => Some(handle.hwnd.get()),
+        _ => None,
+    }
+}
+
 pub fn apps_with_windows() -> Vec<IgnoredApp> {
     let windows = app_windows();
     let own = unsafe { GetCurrentProcessId() };

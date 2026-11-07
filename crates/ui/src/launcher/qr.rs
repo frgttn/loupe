@@ -55,7 +55,7 @@ impl Launcher {
             let png = code.png()?;
             let size = code.png_size();
             clipboard::write(
-                self.hwnd,
+                self.window_handle,
                 &Content::Image(Image {
                     png,
                     width: size,
@@ -122,7 +122,7 @@ impl Launcher {
         if source == QrSource::Screen {
             self.hide(cx);
         }
-        let owner = self.hwnd;
+        let owner = self.window_handle;
         cx.spawn_in(window, async move |this, cx| {
             if source == QrSource::Screen {
                 cx.background_executor().timer(HIDE_SETTLE).await;

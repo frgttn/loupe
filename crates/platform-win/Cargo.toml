@@ -16,6 +16,8 @@ image = { workspace = true, features = ["png", "ico", "bmp", "jpeg", "gif", "web
 loupe-core.workspace = true
 # `Listed`, what a folder listing gives the file index.
 loupe-files.workspace = true
+# The UI window's HWND, without the UI knowing it is one (`win::native_handle`).
+raw-window-handle.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 # Points and matrices for Direct2D (the region picker's drawing).

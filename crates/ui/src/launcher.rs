@@ -50,7 +50,6 @@ use loupe_platform::{
 };
 use loupe_search::{Candidate, RootSearch, Row, Searcher, Split};
 use loupe_store::{CachedIcon, Calculation, Store};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use self::{
     clipboard::{PREVIEW_LIST_WIDTH, PreviewImage},
@@ -470,7 +469,7 @@ fn tint_for(background: u32, appearance: theme::Appearance) -> u32 {
 const GAMES_REFRESH: Duration = Duration::from_secs(60);
 
 pub struct Launcher {
-    hwnd: isize,
+    window_handle: isize,
     input: Entity<TextInput>,
     search: RootSearch,
     /// Catalogs still loading at startup.
@@ -621,12 +620,10 @@ impl Launcher {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let hwnd = match HasWindowHandle::window_handle(window).map(|handle| handle.as_raw()) {
-            Ok(RawWindowHandle::Win32(handle)) => handle.hwnd.get(),
-            other => panic!("expected a Win32 window handle, got {other:?}"),
-        };
+        let window_handle =
+            win::native_handle(window).expect("the launcher window has no native handle");
         // A frameless popup gets square corners unless asked.
-        win::round_corners(hwnd);
+        win::round_corners(window_handle);
         theme::set_system(theme::appearance_of(cx.window_appearance()));
 
         let input = cx.new(|cx| TextInput::new(SEARCH_PLACEHOLDER, cx));
@@ -722,7 +719,7 @@ impl Launcher {
         }
 
         let mut this = Self {
-            hwnd,
+            window_handle,
             input,
             loading: 0,
             games_loaded: Instant::now(),
@@ -1243,11 +1240,11 @@ impl Launcher {
                 (this.visible && this.hud.is_none()).then(|| {
                     let height = this.height.value.min(Self::full_client_height());
                     this.clipped_height = height;
-                    (this.hwnd, height)
+                    (this.window_handle, height)
                 })
             });
-            if let Ok(Some((hwnd, height))) = target {
-                win::resize(hwnd, WINDOW_SIZE, Some(height));
+            if let Ok(Some((window_handle, height))) = target {
+                win::resize(window_handle, WINDOW_SIZE, Some(height));
             }
         })
         .detach();
@@ -1258,9 +1255,11 @@ impl Launcher {
     /// have taken the window meanwhile, and keeps its own size.
     fn resize_window(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
-            let target = this.read_with(cx, |this, _| this.hud.is_none().then_some(this.hwnd));
-            if let Ok(Some(hwnd)) = target {
-                win::resize(hwnd, WINDOW_SIZE, Some(Self::full_client_height()));
+            let target = this.read_with(cx, |this, _| {
+                this.hud.is_none().then_some(this.window_handle)
+            });
+            if let Ok(Some(window_handle)) = target {
+                win::resize(window_handle, WINDOW_SIZE, Some(Self::full_client_height()));
             }
         })
         .detach();
@@ -1782,7 +1781,7 @@ impl Launcher {
 
     /// Hotkey handler. `pressed_at` is when the hotkey thread dequeued `WM_HOTKEY`.
     pub fn toggle(&mut self, pressed_at: Instant, window: &mut Window, cx: &mut Context<Self>) {
-        if self.visible && win::is_visible(self.hwnd) {
+        if self.visible && win::is_visible(self.window_handle) {
             self.hide(cx);
         } else {
             self.show(pressed_at, window, cx);
@@ -1814,7 +1813,7 @@ impl Launcher {
     pub fn show(&mut self, pressed_at: Instant, window: &mut Window, cx: &mut Context<Self>) {
         self.follow_system(cx);
         let foreground = system_clipboard::foreground_window();
-        if foreground != self.hwnd {
+        if foreground != self.window_handle {
             self.previous_window = foreground;
         }
         self.hud = None;
@@ -1846,10 +1845,14 @@ impl Launcher {
         // Opens at the height its content needs; only later changes ease.
         self.height.snap(self.target_height(cx));
         self.clipped_height = self.height.value;
-        win::set_border_color(self.hwnd, theme::p().window_border);
+        win::set_border_color(self.window_handle, theme::p().window_border);
         // Explicit size: with `show: false` GPUI defers its own placement to
         // `activate()`, which we bypass, so the window would keep CW_USEDEFAULT.
-        win::show_on_active_monitor(self.hwnd, Some(WINDOW_SIZE), Some(self.height.value));
+        win::show_on_active_monitor(
+            self.window_handle,
+            Some(WINDOW_SIZE),
+            Some(self.height.value),
+        );
         self.visible = true;
         window.focus(&self.input.focus_handle(cx));
 
@@ -1866,8 +1869,8 @@ impl Launcher {
     /// Shows the window unless it is already up (tray click, second launch).
     /// Unlike [`Self::toggle`], it never hides.
     pub fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.visible && win::is_visible(self.hwnd) {
-            win::focus(self.hwnd);
+        if self.visible && win::is_visible(self.window_handle) {
+            win::focus(self.window_handle);
         } else {
             self.show(Instant::now(), window, cx);
         }
@@ -1879,7 +1882,7 @@ impl Launcher {
         self.close_editor(None, cx);
         self.forget_preview_image();
         self.forget_qr_image();
-        win::hide(self.hwnd);
+        win::hide(self.window_handle);
         self.visible = false;
         self.prepare_next_show(cx);
         cx.notify();
@@ -2419,10 +2422,12 @@ impl Launcher {
             Command::PasteSnippet { text, paste } => return self.paste_snippet(text, *paste, cx),
             Command::CopyFile(path) => {
                 let content = system_clipboard::Content::Files(vec![path.clone()]);
-                hud = Some(match system_clipboard::write(self.hwnd, &content) {
-                    Ok(()) => "Copied to Clipboard".into(),
-                    Err(err) => err.into(),
-                });
+                hud = Some(
+                    match system_clipboard::write(self.window_handle, &content) {
+                        Ok(()) => "Copied to Clipboard".into(),
+                        Err(err) => err.into(),
+                    },
+                );
             }
             // Hidden first, so it doesn't take the foreground back from a
             // window just brought up, and Windows doesn't activate another.
@@ -2472,7 +2477,11 @@ impl Launcher {
             self.show_hud("Selected Text is turned off in Settings".into(), cx);
             return;
         }
-        let outcome = selection::spawn(self.previous_window, self.hwnd, self.selection_copy);
+        let outcome = selection::spawn(
+            self.previous_window,
+            self.window_handle,
+            self.selection_copy,
+        );
         self.hide(cx);
         cx.spawn_in(window, async move |this, cx| {
             let outcome = outcome
@@ -3107,7 +3116,7 @@ impl Launcher {
         self.hud = Some(text);
         self.hud_generation += 1;
         let generation = self.hud_generation;
-        win::show_without_focus_near_bottom(self.hwnd, HUD_SIZE);
+        win::show_without_focus_near_bottom(self.window_handle, HUD_SIZE);
         self.clipped_height = -1.;
         cx.notify();
 
@@ -3115,7 +3124,7 @@ impl Launcher {
             cx.background_executor().timer(HUD_DURATION).await;
             this.update(cx, |this, cx| {
                 if this.hud_generation == generation && this.hud.take().is_some() {
-                    win::hide(this.hwnd);
+                    win::hide(this.window_handle);
                     this.prepare_next_show(cx);
                     cx.notify();
                 }
