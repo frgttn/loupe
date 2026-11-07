@@ -144,5 +144,6 @@ pub fn spawn(
     _presses: async_channel::Sender<Instant>,
     _item_presses: async_channel::Sender<String>,
 ) -> Result<(Service, Result<Hotkey, String>), String> {
-    Err(UNSUPPORTED.into())
+    // The service "runs", so the app starts; no hotkey gets registered.
+    Ok((Service { _private: () }, Err(UNSUPPORTED.into())))
 }
