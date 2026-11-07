@@ -7,6 +7,11 @@
 //! ([`native_handle`]). AppKit wants all of this on the main thread, which
 //! is where GPUI runs the UI.
 //!
+//! The app stays out of the Dock and Cmd+Tab ([`hide_from_dock`]).
+//!
+//! Windows open at GPUI's pop-up level, above floating panels, and their
+//! blurred background blurs ([`round_corners`]).
+//!
 //! Not yet: rounded corners, the border colour and the list of apps with
 //! windows (Settings) are no-ops.
 
@@ -28,8 +33,15 @@ pub fn apps_with_windows() -> Vec<IgnoredApp> {
     Vec::new()
 }
 
-/// Rounded corners for the frameless window. Not yet on macOS.
-pub fn round_corners(_raw: isize) {}
+/// Rounded corners for the frameless window: not yet on macOS. Each window
+/// calls this once as it's made, so it also makes the blurred background
+/// blur.
+pub fn round_corners(raw: isize) {
+    #[cfg(target_os = "macos")]
+    appkit::blur_behind(raw);
+    #[cfg(not(target_os = "macos"))]
+    let _ = raw;
+}
 
 /// Clips the window to the top `logical_height` of its content. Not yet on
 /// macOS.
@@ -69,6 +81,7 @@ mod no_appkit {
     pub fn resize(_raw: isize, _logical_size: (f32, f32), _client_height: Option<f32>) {}
     pub fn show_without_focus_near_bottom(_raw: isize, _logical_size: (f32, f32)) {}
     pub fn hide(_raw: isize) {}
+    pub fn hide_from_dock() {}
     pub fn take_foreground(_raw: isize) {}
     pub fn focus(_raw: isize) {}
     pub fn is_visible(_raw: isize) -> bool {
@@ -84,11 +97,12 @@ pub use no_appkit::*;
 #[allow(unused_unsafe)]
 mod appkit {
     use objc2::{MainThreadMarker, rc::Retained};
-    use objc2_app_kit::{NSApplication, NSEvent, NSScreen, NSView, NSWindow};
+    use objc2_app_kit::{
+        NSApplication, NSApplicationActivationPolicy, NSEvent, NSScreen, NSView,
+        NSVisualEffectMaterial, NSVisualEffectView, NSWindow,
+    };
     use objc2_foundation::{NSPoint, NSRect, NSSize};
 
-    /// Above normal windows, as a launcher should be (`NSFloatingWindowLevel`).
-    const FLOATING: isize = 3;
     /// How far above the bottom of the screen's usable area the HUD sits.
     const HUD_MARGIN: f64 = 64.;
 
@@ -101,6 +115,27 @@ mod appkit {
         // a window GPUI keeps alive for the app's lifetime.
         let view = unsafe { &*(raw as *const NSView) };
         unsafe { view.window() }
+    }
+
+    /// Makes GPUI's blur behind the window actually blur. For a `Blurred`
+    /// window GPUI puts an `NSVisualEffectView` under its own view with the
+    /// `Selection` material, which on current macOS is a flat colour with no
+    /// backdrop layer: what's behind showed through sharp. A window material
+    /// blurs. GPUI makes that view once, with the window.
+    pub(super) fn blur_behind(raw: isize) {
+        let (Some(_), Some(window)) = (main_thread(), window(raw)) else {
+            return;
+        };
+        let Some(content) = (unsafe { window.contentView() }) else {
+            return;
+        };
+        let subviews = unsafe { content.subviews() };
+        for ix in 0..unsafe { subviews.count() } {
+            let view = unsafe { subviews.objectAtIndex(ix) };
+            if let Ok(effect) = view.downcast::<NSVisualEffectView>() {
+                unsafe { effect.setMaterial(NSVisualEffectMaterial::HUDWindow) };
+            }
+        }
     }
 
     fn main_thread() -> Option<MainThreadMarker> {
@@ -167,7 +202,6 @@ mod appkit {
             unsafe { window.setFrame_display(frame, true) };
         }
         unsafe {
-            window.setLevel(FLOATING);
             app(mtm).activate();
             window.makeKeyAndOrderFront(None);
         }
@@ -208,13 +242,14 @@ mod appkit {
         );
         unsafe {
             window.setFrame_display(frame, true);
-            window.setLevel(FLOATING);
             window.orderFrontRegardless();
         }
     }
 
     /// Hides the window. With no other window of ours left on screen, the
     /// app hides too, so the app that was in front before gets focus back.
+    /// Only windows that can take focus count: the tray icon's status bar
+    /// window is always on screen.
     pub fn hide(raw: isize) {
         let (Some(mtm), Some(window)) = (main_thread(), window(raw)) else {
             return;
@@ -222,10 +257,26 @@ mod appkit {
         unsafe { window.orderOut(None) };
         let app = app(mtm);
         let windows = unsafe { app.windows() };
-        let others_visible = (0..unsafe { windows.count() })
-            .any(|ix| unsafe { windows.objectAtIndex(ix).isVisible() });
+        let others_visible = (0..unsafe { windows.count() }).any(|ix| {
+            let other = unsafe { windows.objectAtIndex(ix) };
+            unsafe { other.isVisible() && other.canBecomeKeyWindow() }
+        });
         if !others_visible {
             unsafe { app.hide(None) };
+        }
+    }
+
+    /// Keeps the app out of the Dock and Cmd+Tab, as a menu-bar app: it shows
+    /// windows and takes focus, but has no Dock icon or menu bar of its own.
+    /// Call once the UI has started: GPUI makes the app a regular one when it
+    /// finishes launching. (The bundle will say so too, with `LSUIElement`.)
+    pub fn hide_from_dock() {
+        let Some(mtm) = main_thread() else {
+            return;
+        };
+        let app = app(mtm);
+        if !unsafe { app.setActivationPolicy(NSApplicationActivationPolicy::Accessory) } {
+            eprintln!("[win] could not keep the app out of the Dock");
         }
     }
 

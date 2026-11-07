@@ -29,8 +29,10 @@ features = [
     "NSApplication",
     "NSEvent",
     "NSResponder",
+    "NSRunningApplication",
     "NSScreen",
     "NSView",
+    "NSVisualEffectView",
     "NSWindow",
 ]
 
