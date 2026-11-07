@@ -18,6 +18,7 @@ publish = false
 loupe-core = { path = "crates/core" }
 loupe-files = { path = "crates/files" }
 loupe-platform = { path = "crates/platform" }
+loupe-platform-mac = { path = "crates/platform-mac" }
 loupe-platform-win = { path = "crates/platform-win" }
 loupe-providers = { path = "crates/providers" }
 loupe-qr = { path = "crates/qr" }
