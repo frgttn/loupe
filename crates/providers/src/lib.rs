@@ -4,6 +4,7 @@
 pub mod apps;
 pub mod calc;
 pub mod clipboard;
+#[cfg(windows)]
 pub mod control_panel;
 mod currency;
 pub mod files;
@@ -15,6 +16,7 @@ pub mod rates;
 pub mod run;
 pub mod screen_region;
 pub mod selection;
+#[cfg(windows)]
 pub mod settings_pages;
 pub mod snippets;
 pub mod switcher;
@@ -115,7 +117,9 @@ pub fn all(
     ));
     let providers: Vec<Arc<dyn Provider>> = vec![
         Arc::new(apps::Apps),
+        #[cfg(windows)]
         Arc::new(settings_pages::SettingsPages),
+        #[cfg(windows)]
         Arc::new(control_panel::ControlPanel),
         Arc::new(games::Games),
         Arc::new(system::System),

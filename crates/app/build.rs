@@ -1,6 +1,6 @@
-//! Works out the version the app shows and embeds the Windows resources: the
-//! exe's icon (Explorer, taskbar, Alt+Tab) and its version (Properties ›
-//! Details).
+//! Works out the version the app shows and, for a Windows build, embeds the
+//! Windows resources: the exe's icon (Explorer, taskbar, Alt+Tab) and its
+//! version (Properties › Details).
 //!
 //! `LOUPE_VERSION` is the version in the workspace `Cargo.toml` for a
 //! release build (`--release`), `0.1.0`, and that plus the day it was built
@@ -24,6 +24,11 @@ fn main() {
         format!("{semver}.{}", today())
     };
     println!("cargo:rustc-env=LOUPE_VERSION={version}");
+
+    // Resources are a Windows exe's; other targets get theirs from the bundle.
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return;
+    }
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let rc = out_dir.join("app.rc");
@@ -74,7 +79,8 @@ END
     )
 }
 
-/// Today's local date as `YYYYMMDD`.
+/// Today's local date as `YYYYMMDD`, on the machine that builds.
+#[cfg(windows)]
 fn today() -> String {
     // SAFETY: GetLocalTime only fills in the struct it is given.
     let now = unsafe {
@@ -83,4 +89,14 @@ fn today() -> String {
         now
     };
     format!("{:04}{:02}{:02}", now.wYear, now.wMonth, now.wDay)
+}
+
+/// Today's local date as `YYYYMMDD`, on the machine that builds.
+#[cfg(not(windows))]
+fn today() -> String {
+    let date = std::process::Command::new("date")
+        .arg("+%Y%m%d")
+        .output()
+        .expect("`date` to tell the date");
+    String::from_utf8_lossy(&date.stdout).trim().to_owned()
 }
