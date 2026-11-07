@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use spotlight_core::{datetime::LocalTime, quicklink::Moment};
+use loupe_core::{datetime::LocalTime, quicklink::Moment};
 use windows::{
     Win32::{
         System::{Com::CoTaskMemFree, SystemInformation::GetLocalTime},

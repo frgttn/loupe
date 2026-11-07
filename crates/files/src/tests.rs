@@ -26,11 +26,8 @@ const TREE: &[(&str, i64)] = &[
     ),
     ("Desktop/rea-test/launcher/crates/providers/", 300),
     ("Desktop/rea-test/launcher/crates/providers/src/", 300),
-    (
-        "Desktop/rea-test/launcher/crates/providers/src/spotlight.rs",
-        3,
-    ),
-    ("Desktop/Spotlight.lnk", 40),
+    ("Desktop/rea-test/launcher/crates/providers/src/loupe.rs", 3),
+    ("Desktop/Loupe.lnk", 40),
     ("Documents/", 300),
     ("Documents/Отчёт за 2024.docx", 90),
     ("Documents/Report final.pdf", 200),
@@ -125,9 +122,9 @@ fn finds_by_name() {
 #[test]
 fn tolerates_typos() {
     let (index, _) = build();
-    let found = search(&index, "spotlgiht");
+    let found = search(&index, "luope");
     assert!(
-        found.iter().any(|path| path.ends_with("spotlight.rs")),
+        found.iter().any(|path| path.ends_with("loupe.rs")),
         "{found:?}"
     );
 }

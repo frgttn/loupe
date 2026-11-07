@@ -18,7 +18,7 @@ use std::{
 };
 
 use image::{ImageFormat, imageops::FilterType};
-use spotlight_core::{
+use loupe_core::{
     clip::{self, ClipKind, IGNORED_APPS_SETTING, IgnoredApp, Retention},
     frecency,
     item::{Command, Icon, SearchItem, shortcut},
@@ -26,11 +26,11 @@ use spotlight_core::{
     provider::Provider,
     view::{ListFilter, ListView, Preview, PreviewBody, View},
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     clipboard::{Content, Copied},
     vault,
 };
-use spotlight_store::{Clip, Store};
+use loupe_store::{Clip, Store};
 
 use crate::{glyph, web};
 
@@ -134,7 +134,7 @@ impl ClipboardHistory {
                 clip.width = Some(image.width);
                 clip.height = Some(image.height);
                 clip.qr = image::load_from_memory_with_format(&image.png, ImageFormat::Png)
-                    .map(|image| spotlight_qr::read(&image.into_rgba8()))
+                    .map(|image| loupe_qr::read(&image.into_rgba8()))
                     .unwrap_or_default();
                 hash
             }
@@ -450,7 +450,7 @@ fn item(clip: &Clip, now: i64) -> SearchItem {
         }
         _ => {}
     }
-    if let Some(view) = spotlight_qr::scanned_view(&clip.qr) {
+    if let Some(view) = loupe_qr::scanned_view(&clip.qr) {
         let show = match clip.qr.len() {
             1 => "Show QR Code",
             _ => "Show QR Codes",
@@ -458,7 +458,7 @@ fn item(clip: &Clip, now: i64) -> SearchItem {
         item = item.action(show, Command::PushView(Box::new(view)));
         if let [code] = clip.qr.as_slice() {
             item = item.action("Copy QR Code Text", Command::Copy(code.clone()));
-            if let Some(url) = spotlight_qr::link(code) {
+            if let Some(url) = loupe_qr::link(code) {
                 item = item.action("Open QR Code Link", Command::OpenUrl(url.to_owned()));
             }
         }
@@ -555,8 +555,8 @@ fn hash(kind: u8, bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_core::clip::RichText;
-    use spotlight_platform_win::clipboard::Image;
+    use loupe_core::clip::RichText;
+    use loupe_platform_win::clipboard::Image;
 
     use super::*;
 
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     fn images_are_saved_with_a_preview_copy() {
-        let dir = std::env::temp_dir().join(format!("spotlight-clips-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-clips-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let store = Arc::new(Mutex::new(Store::open_in_memory().unwrap()));
         let history =
@@ -776,11 +776,11 @@ mod tests {
 
     #[test]
     fn images_are_found_by_their_qr_codes() {
-        let dir = std::env::temp_dir().join(format!("spotlight-qr-clips-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-qr-clips-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let store = Arc::new(Mutex::new(Store::open_in_memory().unwrap()));
         let history = ClipboardHistory::new(Some(store), Some(dir.clone()), Retention::default());
-        let code = spotlight_qr::Code::new("https://example.com/menu").unwrap();
+        let code = loupe_qr::Code::new("https://example.com/menu").unwrap();
         history.record(copied(Content::Image(Image {
             png: code.png().unwrap(),
             width: code.png_size(),

@@ -8,12 +8,12 @@ use std::{fs, path::Path};
 use std::time::{Duration, Instant};
 
 use gpui::{Context, Window};
-use spotlight_core::{
+use loupe_core::{
     clip::IgnoredApp,
     frecency, item_id,
     snippet::{self, EXCLUDED_APPS_SETTING, Inputs, Snippet},
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     clipboard::{self, Content},
     expander::{self, Ask, Keyword},
     links, win,
@@ -45,7 +45,7 @@ impl Launcher {
                 self.sync_expander();
             }
             Err(err) => {
-                eprintln!("[spotlight] snippet keywords won't expand: {err}");
+                eprintln!("[loupe] snippet keywords won't expand: {err}");
                 return;
             }
         }
@@ -275,7 +275,7 @@ impl Launcher {
         let caret_back = expansion.moves_back();
         let text = snippet::normalize_text(&expansion.text).replace('\n', "\r\n");
         if let Err(err) = clipboard::write(self.hwnd, &Content::Text(text)) {
-            eprintln!("[spotlight] could not copy the snippet: {err}");
+            eprintln!("[loupe] could not copy the snippet: {err}");
             self.hide(cx);
             self.show_hud(format!("Couldn't copy: {err}").into(), cx);
             return;
@@ -305,7 +305,7 @@ impl Launcher {
         match fs::read_to_string(path) {
             Ok(json) => self.import_snippets_json(&json),
             Err(err) => {
-                eprintln!("[spotlight] could not read {}: {err}", path.display());
+                eprintln!("[loupe] could not read {}: {err}", path.display());
                 format!("Couldn't read it: {err}")
             }
         }
@@ -327,7 +327,7 @@ impl Launcher {
         let imported = match imported {
             Ok(imported) => imported,
             Err(err) => {
-                eprintln!("[spotlight] could not import snippets: {err}");
+                eprintln!("[loupe] could not import snippets: {err}");
                 return err;
             }
         };
@@ -335,7 +335,7 @@ impl Launcher {
         let skipped = imported.duplicates + imported.taken + imported.invalid;
         if skipped > 0 {
             eprintln!(
-                "[spotlight] import skipped {} already there, {} with a keyword in use, {} invalid",
+                "[loupe] import skipped {} already there, {} with a keyword in use, {} invalid",
                 imported.duplicates, imported.taken, imported.invalid
             );
         }

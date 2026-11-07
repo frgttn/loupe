@@ -1,12 +1,12 @@
 //! System commands: power and session, Recycle Bin, theme, sound, Bluetooth,
 //! HDR, night light, drives.
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem, SystemCommand},
     item_id,
     provider::Provider,
 };
-use spotlight_platform_win::drives::{self, DriveKind};
+use loupe_platform_win::drives::{self, DriveKind};
 
 use crate::glyph;
 

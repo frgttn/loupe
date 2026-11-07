@@ -1,4 +1,4 @@
-//! `spotlight://` links in the launcher. A link from outside (a browser, a
+//! `loupe://` links in the launcher. A link from outside (a browser, a
 //! shortcut) opens the launcher on the command it names and waits for Enter,
 //! so a web page can't run commands by itself; Ctrl+Enter also lets that
 //! command open from links without asking from then on, as Raycast's
@@ -9,12 +9,12 @@
 use std::time::{Duration, Instant};
 
 use gpui::{AppContext, Context, Window};
-use spotlight_core::{
+use loupe_core::{
     deeplink::{self, CommandLink, Deeplink},
     item::Command,
     view::View,
 };
-use spotlight_search::Row;
+use loupe_search::Row;
 
 use super::{Launcher, views::Screen};
 
@@ -22,7 +22,7 @@ use super::{Launcher, views::Screen};
 /// one per line.
 pub(super) const TRUSTED_SETTING: &str = "deeplink_trusted";
 /// How long a link that arrives while the catalogs load (it started
-/// Spotlight) waits for them.
+/// Loupe) waits for them.
 const LOAD_WAIT: Duration = Duration::from_secs(10);
 
 /// A command a link named, waiting for Enter.
@@ -41,12 +41,12 @@ pub(super) fn parse_trusted(setting: &str) -> impl Iterator<Item = String> + '_ 
 }
 
 impl Launcher {
-    /// Opens a `spotlight://` link: the launcher, or the command it names.
+    /// Opens a `loupe://` link: the launcher, or the command it names.
     pub fn open_link(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.open_link_after_load(text.to_owned(), true, false, window, cx);
     }
 
-    /// Opens a `spotlight://` link a quicklink of the user's own named.
+    /// Opens a `loupe://` link a quicklink of the user's own named.
     pub(super) fn open_own_link(
         &mut self,
         text: &str,
@@ -69,7 +69,7 @@ impl Launcher {
             Ok(Deeplink::Open) => return self.open(window, cx),
             Ok(Deeplink::Command(link)) => link,
             Err(err) => {
-                eprintln!("[spotlight] can't open {text:?}: {err}");
+                eprintln!("[loupe] can't open {text:?}: {err}");
                 return self.link_problem(format!("Can't open this link: {err}"), cx);
             }
         };
@@ -79,7 +79,7 @@ impl Launcher {
             .iter()
             .position(|item| link.names(&item.id, &item.title));
         let Some(ix) = found else {
-            // The link started Spotlight: its command may not be loaded yet.
+            // The link started Loupe: its command may not be loaded yet.
             if wait && self.loading > 0 {
                 return self.wait_for_catalogs(text, window, cx);
             }
@@ -175,7 +175,7 @@ impl Launcher {
         let opens_view = super::opens_view(&command);
         if !self.visible {
             // Window commands act on the window the link was opened from.
-            self.previous_window = spotlight_platform_win::clipboard::foreground_window();
+            self.previous_window = loupe_platform_win::clipboard::foreground_window();
             if opens_view {
                 self.show(Instant::now(), window, cx);
             }

@@ -1,16 +1,16 @@
-//! Spotlight: wiring for the launcher window. See `README.md`.
+//! Loupe: wiring for the launcher window. See `README.md`.
 //!
 //! Environment:
-//! - `SPOTLIGHT_SYNTHETIC=10000` adds that many filler rows for the list test.
-//! - `SPOTLIGHT_SHOW_ON_START=1` shows the window immediately (handy while developing).
-//!   With `SPOTLIGHT_QUERY=<text>` that text is typed into it (for screenshots).
-//! - `SPOTLIGHT_SELFTEST=1` runs the scripted measurement in `selftest.rs` and quits.
-//! - `SPOTLIGHT_THEME=light|dark|system` overrides the saved theme mode.
-//! - `SPOTLIGHT_WINDOW_MODE=compact|expanded` overrides the saved window mode.
-//! - `SPOTLIGHT_DATA_DIR=<dir>` keeps the database there instead of `%APPDATA%\spotlight`.
+//! - `LOUPE_SYNTHETIC=10000` adds that many filler rows for the list test.
+//! - `LOUPE_SHOW_ON_START=1` shows the window immediately (handy while developing).
+//!   With `LOUPE_QUERY=<text>` that text is typed into it (for screenshots).
+//! - `LOUPE_SELFTEST=1` runs the scripted measurement in `selftest.rs` and quits.
+//! - `LOUPE_THEME=light|dark|system` overrides the saved theme mode.
+//! - `LOUPE_WINDOW_MODE=compact|expanded` overrides the saved window mode.
+//! - `LOUPE_DATA_DIR=<dir>` keeps the database there instead of `%APPDATA%\loupe`.
 //!
-//! `spotlight.exe --settings` opens the settings window (of the running
-//! instance, if there is one); `spotlight.exe "spotlight://…"` opens that link
+//! `loupe.exe --settings` opens the settings window (of the running
+//! instance, if there is one); `loupe.exe "loupe://…"` opens that link
 //! (Windows starts it so for links, see `protocol`).
 
 // A GUI-subsystem binary, so starting at login or from the Start menu opens no
@@ -34,23 +34,21 @@ use gpui::{
     App, Application, Bounds, SharedString, WindowBackgroundAppearance, WindowBounds, WindowHandle,
     WindowKind, WindowOptions, prelude::*, px, size,
 };
-use spotlight_core::{
+use loupe_core::{
     clip::{IGNORED_APPS_SETTING, IgnoredApp, Retention},
     deeplink, file_search, run as run_command, snippet,
     web::SearchEngine,
     window as window_layout,
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     clipboard,
     hotkey::{self, Hotkey},
     instance::{self, Instance},
     metrics, protocol, vault, win, wm,
 };
-use spotlight_providers::{
-    Builtins, clipboard::ClipboardHistory, files::Files, run::Run, web::Web,
-};
-use spotlight_store::{Key, Store};
-use spotlight_ui::{
+use loupe_providers::{Builtins, clipboard::ClipboardHistory, files::Files, run::Run, web::Web};
+use loupe_store::{Key, Store};
+use loupe_ui::{
     launcher::{self, HomeSection, Launcher, OpenSettings, Quit, WindowMode},
     settings::{self, LauncherReader, LauncherState, Settings, SettingsEvent},
     text_input, theme,
@@ -137,7 +135,7 @@ fn main() {
     // The installer's calls exit here; a downloaded update restarts into
     // the new version.
     update::run_installer_hooks();
-    let self_test = env::var_os("SPOTLIGHT_SELFTEST").is_some();
+    let self_test = env::var_os("LOUPE_SELFTEST").is_some();
     let settings_requested = env::args().skip(1).any(|arg| arg == "--settings");
     let link = env::args().skip(1).find(|arg| is_link(arg));
 
@@ -155,7 +153,7 @@ fn main() {
                     None => instance::SHOW,
                 };
                 if let Err(err) = instance::send(message) {
-                    eprintln!("[spotlight] already running, but could not reach it: {err}");
+                    eprintln!("[loupe] already running, but could not reach it: {err}");
                 }
                 return;
             }
@@ -163,24 +161,24 @@ fn main() {
     };
     let (messages_tx, messages_rx) = async_channel::unbounded::<String>();
     if !self_test {
-        // A link that started Spotlight is handled like one sent later.
+        // A link that started Loupe is handled like one sent later.
         if let Some(link) = link {
             messages_tx.send_blocking(link).ok();
         }
         instance::listen(messages_tx);
         if let Err(err) = protocol::register(deeplink::SCHEME) {
             eprintln!(
-                "[spotlight] {}:// links won't open Spotlight: {err}",
+                "[loupe] {}:// links won't open Loupe: {err}",
                 deeplink::SCHEME
             );
         }
     }
 
-    let synthetic = env::var("SPOTLIGHT_SYNTHETIC")
+    let synthetic = env::var("LOUPE_SYNTHETIC")
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(0usize);
-    let show_on_start = env::var_os("SPOTLIGHT_SHOW_ON_START").is_some();
+    let show_on_start = env::var_os("LOUPE_SHOW_ON_START").is_some();
     let data_dir = data_dir();
     let (store, data_path) = open_store(data_dir.as_deref());
     let store = store.map(|store| Arc::new(Mutex::new(store)));
@@ -207,23 +205,23 @@ fn main() {
             .filter_map(|name| HomeSection::from_setting(name.trim())),
     );
     // Before any window opens, which then start out in the right colours.
-    // `SPOTLIGHT_THEME=light|dark|system` overrides the saved mode, for
+    // `LOUPE_THEME=light|dark|system` overrides the saved mode, for
     // screenshots.
-    let mode = env::var("SPOTLIGHT_THEME")
+    let mode = env::var("LOUPE_THEME")
         .ok()
         .and_then(|text| theme::Mode::from_setting(&text))
         .or_else(|| setting(theme::MODE_SETTING).and_then(|text| theme::Mode::from_setting(&text)))
         .unwrap_or_default();
     theme::set_mode(mode);
-    // `SPOTLIGHT_WINDOW_MODE=compact|expanded` overrides the saved one, for
+    // `LOUPE_WINDOW_MODE=compact|expanded` overrides the saved one, for
     // screenshots.
-    let window_mode = env::var("SPOTLIGHT_WINDOW_MODE")
+    let window_mode = env::var("LOUPE_WINDOW_MODE")
         .ok()
         .or_else(|| setting(WINDOW_MODE_SETTING))
         .and_then(|text| {
             let mode = WindowMode::from_setting(&text);
             if mode.is_none() {
-                eprintln!("[spotlight] ignoring unknown window mode {text:?}");
+                eprintln!("[loupe] ignoring unknown window mode {text:?}");
             }
             mode
         })
@@ -232,7 +230,7 @@ fn main() {
         .and_then(|text| {
             let engine = SearchEngine::from_setting(&text);
             if engine.is_none() {
-                eprintln!("[spotlight] ignoring unknown search engine {text:?}");
+                eprintln!("[loupe] ignoring unknown search engine {text:?}");
             }
             engine
         })
@@ -250,7 +248,7 @@ fn main() {
         .and_then(|text| {
             let retention = Retention::from_setting(&text);
             if retention.is_none() {
-                eprintln!("[spotlight] ignoring unreadable clipboard retention {text:?}");
+                eprintln!("[loupe] ignoring unreadable clipboard retention {text:?}");
             }
             retention
         })
@@ -258,7 +256,7 @@ fn main() {
     let saved_hotkey = setting(HOTKEY_SETTING).and_then(|text| {
         let hotkey = Hotkey::parse(&text);
         if hotkey.is_none() {
-            eprintln!("[spotlight] ignoring unreadable saved hotkey {text:?}");
+            eprintln!("[loupe] ignoring unreadable saved hotkey {text:?}");
         }
         hotkey
     });
@@ -287,13 +285,13 @@ fn main() {
     let hotkey = match registered {
         Ok(hotkey) => {
             if saved_hotkey.is_some_and(|saved| saved != hotkey) {
-                eprintln!("[spotlight] saved hotkey is taken; using {hotkey} for now");
+                eprintln!("[loupe] saved hotkey is taken; using {hotkey} for now");
             }
-            eprintln!("[spotlight] hotkey registered: {hotkey}");
+            eprintln!("[loupe] hotkey registered: {hotkey}");
             Some(hotkey)
         }
         Err(err) => {
-            eprintln!("[spotlight] {err}; use SPOTLIGHT_SHOW_ON_START=1 to test without a hotkey");
+            eprintln!("[loupe] {err}; use LOUPE_SHOW_ON_START=1 to test without a hotkey");
             None
         }
     };
@@ -316,7 +314,7 @@ fn main() {
             clipboard: clipboard_history,
             files,
             run,
-        } = spotlight_providers::all(
+        } = loupe_providers::all(
             search_engine.clone(),
             data_dir.clone(),
             store.clone(),
@@ -348,7 +346,7 @@ fn main() {
                     // A blurred backdrop under the launcher's tint. The
                     // window is sized to its content, so Windows rounds it.
                     window_background: WindowBackgroundAppearance::Blurred,
-                    app_id: Some("spotlight".into()),
+                    app_id: Some("dev.frgttn.loupe".into()),
                     ..Default::default()
                 },
                 |window, cx| {
@@ -411,7 +409,7 @@ fn main() {
 
         let (commands_tx, commands_rx) = async_channel::unbounded();
         let tray = Tray::create(&hotkey_label, commands_tx)
-            .inspect_err(|err| eprintln!("[spotlight] could not create the tray icon: {err}"))
+            .inspect_err(|err| eprintln!("[loupe] could not create the tray icon: {err}"))
             .ok();
         let (updates_tx, updates_rx) = async_channel::unbounded();
         let updater = Updater::new(updates_tx);
@@ -525,7 +523,7 @@ fn main() {
                             })
                             .ok();
                     }
-                    other => eprintln!("[spotlight] ignoring unknown message {other:?}"),
+                    other => eprintln!("[loupe] ignoring unknown message {other:?}"),
                 })
                 .ok();
             }
@@ -575,7 +573,7 @@ fn main() {
                     .await;
                 let memory = metrics::memory();
                 eprintln!(
-                    "[spotlight] RAM working set {:.1} MB, private {:.1} MB",
+                    "[loupe] RAM working set {:.1} MB, private {:.1} MB",
                     memory.working_set_mb, memory.private_mb
                 );
             }
@@ -587,9 +585,9 @@ fn main() {
                 .detach();
         } else if show_on_start {
             presses_tx.send_blocking(Instant::now()).ok();
-            // `SPOTLIGHT_QUERY=<text>` types it into the search field once
+            // `LOUPE_QUERY=<text>` types it into the search field once
             // shown, for screenshots of a search.
-            if let Ok(query) = env::var("SPOTLIGHT_QUERY") {
+            if let Ok(query) = env::var("LOUPE_QUERY") {
                 cx.spawn(async move |cx| {
                     cx.background_executor()
                         .timer(Duration::from_millis(500))
@@ -631,7 +629,7 @@ fn open_settings(state: &Rc<AppState>, cx: &mut App) {
         is_resizable: true,
         window_min_size: Some(size(px(min_width), px(min_height))),
         window_background: WindowBackgroundAppearance::Blurred,
-        app_id: Some("spotlight".into()),
+        app_id: Some("dev.frgttn.loupe".into()),
         ..Default::default()
     };
     let view_state = state.clone();
@@ -659,7 +657,7 @@ fn open_settings(state: &Rc<AppState>, cx: &mut App) {
                 view_state.run_prefix.borrow().clone(),
                 view_state.files.config(),
                 file_status,
-                env!("SPOTLIGHT_VERSION"),
+                env!("LOUPE_VERSION"),
                 update_status,
                 view_state.data_path.clone(),
                 launcher_reader(view_state.launcher, view_state.web.clone()),
@@ -675,7 +673,7 @@ fn open_settings(state: &Rc<AppState>, cx: &mut App) {
     });
     match opened {
         Ok(handle) => *state.settings.borrow_mut() = Some(handle),
-        Err(err) => eprintln!("[spotlight] could not open settings: {err}"),
+        Err(err) => eprintln!("[loupe] could not open settings: {err}"),
     }
 }
 
@@ -900,7 +898,7 @@ fn settings_changed(state: &AppState, event: &SettingsEvent, cx: &mut App) {
                 .update(cx, |launcher, window, cx| {
                     launcher.set_run_prefix(prefix.clone());
                     // Its row says what to type.
-                    launcher.reload_provider(spotlight_providers::run::ID, window, cx);
+                    launcher.reload_provider(loupe_providers::run::ID, window, cx);
                 })
                 .ok();
             save_setting(state, run_command::PREFIX_SETTING, prefix.clone(), cx);
@@ -945,7 +943,7 @@ fn settings_changed(state: &AppState, event: &SettingsEvent, cx: &mut App) {
 
 /// The tray's update item: restart into a downloaded update, or look for one.
 fn update_or_check(updater: &Arc<Updater>) {
-    if matches!(updater.status(), spotlight_core::update::Status::Ready(_)) {
+    if matches!(updater.status(), loupe_core::update::Status::Ready(_)) {
         updater.restart();
     } else {
         updater.check();
@@ -970,7 +968,7 @@ fn files_enabled(state: &AppState, cx: &App) -> bool {
 fn set_win_v(hotkeys: &hotkey::Service, enabled: bool) {
     let item = enabled.then_some(CLIPBOARD_HISTORY_ITEM);
     if let Err(err) = hotkeys.intercept_win_v(item) {
-        eprintln!("[spotlight] {err}");
+        eprintln!("[loupe] {err}");
     }
 }
 
@@ -980,7 +978,7 @@ fn set_win_v(hotkeys: &hotkey::Service, enabled: bool) {
 fn record_clipboard(history: Arc<ClipboardHistory>) {
     let (copied_tx, copied_rx) = async_channel::unbounded();
     if let Err(err) = clipboard::listen(copied_tx) {
-        eprintln!("[spotlight] clipboard history is off: {err}");
+        eprintln!("[loupe] clipboard history is off: {err}");
         return;
     }
     let spawned = std::thread::Builder::new()
@@ -993,7 +991,7 @@ fn record_clipboard(history: Arc<ClipboardHistory>) {
             }
         });
     if let Err(err) = spawned {
-        eprintln!("[spotlight] clipboard history is off: {err}");
+        eprintln!("[loupe] clipboard history is off: {err}");
     }
 }
 
@@ -1033,13 +1031,13 @@ fn save_setting(state: &AppState, key: &'static str, value: String, cx: &mut App
                         .map_err(|err| err.to_string())
                 });
             if let Err(err) = result {
-                eprintln!("[spotlight] could not save setting {key:?}: {err}");
+                eprintln!("[loupe] could not save setting {key:?}: {err}");
             }
         })
         .detach();
 }
 
-/// Whether a command-line argument or instance message is a `spotlight:` link.
+/// Whether a command-line argument or instance message is a `loupe:` link.
 fn is_link(text: &str) -> bool {
     text.get(..deeplink::SCHEME.len() + 1)
         .is_some_and(|start| start.eq_ignore_ascii_case(&format!("{}:", deeplink::SCHEME)))
@@ -1049,14 +1047,14 @@ fn hotkey_label(hotkey: Option<Hotkey>) -> SharedString {
     hotkey.map_or("no hotkey".into(), |hotkey| hotkey.to_string().into())
 }
 
-/// `%APPDATA%\spotlight`, or `SPOTLIGHT_DATA_DIR`: the database and caches.
+/// `%APPDATA%\loupe`, or `LOUPE_DATA_DIR`: the database and caches.
 fn data_dir() -> Option<PathBuf> {
-    env::var_os("SPOTLIGHT_DATA_DIR")
+    env::var_os("LOUPE_DATA_DIR")
         .map(PathBuf::from)
-        .or_else(|| env::var_os("APPDATA").map(|appdata| PathBuf::from(appdata).join("spotlight")))
+        .or_else(|| env::var_os("APPDATA").map(|appdata| PathBuf::from(appdata).join("loupe")))
 }
 
-/// `spotlight.db` in the data folder ([`data_dir`]), encrypted with the key
+/// `loupe.db` in the data folder ([`data_dir`]), encrypted with the key
 /// in Credential Manager; a plain one from before is encrypted on the way.
 /// Without a database the launcher still works; it just doesn't remember
 /// usage or settings. Also returns the path for display.
@@ -1064,14 +1062,14 @@ fn open_store(dir: Option<&Path>) -> (Option<Store>, SharedString) {
     let Some(dir) = dir else {
         return (None, "unavailable (APPDATA is not set)".into());
     };
-    let path = dir.join("spotlight.db");
+    let path = dir.join("loupe.db");
     let shown: SharedString = path.display().to_string().into();
     let key = database_key(&path);
     let opened = match Store::open(&path, key.as_ref()) {
         // Encrypted with some other key: unreadable too, so the same as
         // a key that is gone.
-        Err(spotlight_store::Error::SqliteFailure(err, _))
-            if key.is_some() && err.code == spotlight_store::ErrorCode::NotADatabase =>
+        Err(loupe_store::Error::SqliteFailure(err, _))
+            if key.is_some() && err.code == loupe_store::ErrorCode::NotADatabase =>
         {
             set_aside(&path);
             Store::open(&path, key.as_ref())
@@ -1081,7 +1079,7 @@ fn open_store(dir: Option<&Path>) -> (Option<Store>, SharedString) {
     match opened {
         Ok(store) => (Some(store), shown),
         Err(err) => {
-            eprintln!("[spotlight] could not open {}: {err}", path.display());
+            eprintln!("[loupe] could not open {}: {err}", path.display());
             (None, format!("{shown} (could not open)").into())
         }
     }
@@ -1092,13 +1090,13 @@ fn open_store(dir: Option<&Path>) -> (Option<Store>, SharedString) {
 fn database_key(path: &Path) -> Option<Key> {
     let (key, new) = vault::database_key()
         .inspect_err(|err| {
-            eprintln!("[spotlight] no database key, so the database is not encrypted: {err}")
+            eprintln!("[loupe] no database key, so the database is not encrypted: {err}")
         })
         .ok()?;
     // Encrypted with a key that is gone (another Windows account, a reset
     // profile): it can't be read, so it is kept aside and a new one starts.
     let unreadable =
-        path.metadata().is_ok_and(|meta| meta.len() > 0) && !spotlight_store::is_plain(path);
+        path.metadata().is_ok_and(|meta| meta.len() > 0) && !loupe_store::is_plain(path);
     if new && unreadable {
         set_aside(path);
     }
@@ -1108,7 +1106,7 @@ fn database_key(path: &Path) -> Option<Key> {
 
 /// Renames the database at `path` (with its log files) out of the way.
 fn set_aside(path: &Path) {
-    let stamp = spotlight_core::frecency::now();
+    let stamp = loupe_core::frecency::now();
     for suffix in ["", "-wal", "-shm"] {
         let mut from = path.as_os_str().to_owned();
         from.push(suffix);
@@ -1119,11 +1117,11 @@ fn set_aside(path: &Path) {
         if Path::new(&from).exists()
             && let Err(err) = std::fs::rename(&from, &to)
         {
-            eprintln!("[spotlight] could not move the unreadable database aside: {err}");
+            eprintln!("[loupe] could not move the unreadable database aside: {err}");
         }
     }
     eprintln!(
-        "[spotlight] {} can't be read with the saved key; kept as unreadable-{stamp}.db",
+        "[loupe] {} can't be read with the saved key; kept as unreadable-{stamp}.db",
         path.display()
     );
 }

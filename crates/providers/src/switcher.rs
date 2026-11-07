@@ -3,14 +3,14 @@
 
 use std::path::Path;
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem, shortcut},
     item_id,
     provider::Provider,
     view::{ListFilter, ListView, View},
     window::WindowCommand,
 };
-use spotlight_platform_win::wm::{self, ProcessInfo, WindowInfo};
+use loupe_platform_win::wm::{self, ProcessInfo, WindowInfo};
 
 use crate::glyph;
 

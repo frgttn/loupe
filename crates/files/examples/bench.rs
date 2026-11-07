@@ -1,10 +1,10 @@
 //! Query timings on a synthetic tree of a million entries.
 //!
-//! `cargo run --release -p spotlight-files --example bench [entries]`
+//! `cargo run --release -p loupe-files --example bench [entries]`
 
 use std::{path::Path, time::Instant};
 
-use spotlight_files::{Builder, EntryId, Index, Meta, Query, SearchOptions};
+use loupe_files::{Builder, EntryId, Index, Meta, Query, SearchOptions};
 
 const WORDS: &[&str] = &[
     "report",
@@ -29,7 +29,7 @@ const WORDS: &[&str] = &[
     "readme",
     "setup",
     "launcher",
-    "spotlight",
+    "loupe",
     "client",
     "server",
     "build",
@@ -188,7 +188,7 @@ fn main() {
         "plan",
         "report",
         "report final",
-        "spotlgiht",
+        "luope",
         "launcher.rs",
         "work plan",
         "*.pdf",

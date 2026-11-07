@@ -1,11 +1,11 @@
 //! Commands on the text selected in another app: search the web for it,
 //! translate it. The app reads the selection when one runs (see
-//! `spotlight_platform_win::selection`); turning this source off in Settings
-//! stops Spotlight from ever reading it, for quicklinks' `{selection}` too.
+//! `loupe_platform_win::selection`); turning this source off in Settings
+//! stops Loupe from ever reading it, for quicklinks' `{selection}` too.
 
 use std::sync::Arc;
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SELECTION, SearchItem},
     item_id,
     provider::Provider,
@@ -38,7 +38,7 @@ impl Provider for Selection {
     }
 
     fn description(&self) -> &'static str {
-        "Commands for the text selected in other apps, and {selection} in quicklinks. Off: Spotlight never reads your selection."
+        "Commands for the text selected in other apps, and {selection} in quicklinks. Off: Loupe never reads your selection."
     }
 
     fn catalog(&self) -> Vec<SearchItem> {
@@ -65,7 +65,7 @@ impl Provider for Selection {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_core::web::SearchEngine;
+    use loupe_core::web::SearchEngine;
 
     use super::*;
 

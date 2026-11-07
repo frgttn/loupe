@@ -3,7 +3,7 @@
 
 use std::{env, fs, path::Path};
 
-use spotlight_core::run;
+use loupe_core::run;
 
 use crate::{links, registry, system::Outcome};
 

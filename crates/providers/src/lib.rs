@@ -1,5 +1,5 @@
 //! Built-in root-search providers. Each one only describes results; the app
-//! runs their actions (see `spotlight_core::item::Command`).
+//! runs their actions (see `loupe_core::item::Command`).
 
 pub mod apps;
 pub mod calc;
@@ -8,6 +8,7 @@ pub mod control_panel;
 mod currency;
 pub mod files;
 pub mod games;
+pub mod loupe;
 pub mod qr;
 pub mod quicklinks;
 pub mod rates;
@@ -16,7 +17,6 @@ pub mod screen_region;
 pub mod selection;
 pub mod settings_pages;
 pub mod snippets;
-pub mod spotlight;
 pub mod switcher;
 pub mod system;
 pub mod web;
@@ -27,8 +27,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use spotlight_core::{clip::Retention, provider::Provider, web::SearchEngine};
-use spotlight_store::Store;
+use loupe_core::{clip::Retention, provider::Provider, web::SearchEngine};
+use loupe_store::Store;
 
 /// Symbols from Segoe Fluent Icons (Windows 11), at the same code points in
 /// Segoe MDL2 Assets (Windows 10).
@@ -102,7 +102,7 @@ pub fn all(
     data_dir: Option<PathBuf>,
     store: Option<Arc<Mutex<Store>>>,
     retention: Retention,
-    files: spotlight_core::file_search::Config,
+    files: loupe_core::file_search::Config,
     run_prefix: String,
 ) -> Builtins {
     let run = Arc::new(run::Run::new(store.clone(), run_prefix));
@@ -132,9 +132,9 @@ pub fn all(
         web.clone(),
         Arc::new(selection::Selection::new(
             web.clone(),
-            spotlight_platform_win::win::user_language(),
+            loupe_platform_win::win::user_language(),
         )),
-        Arc::new(spotlight::Spotlight),
+        Arc::new(loupe::Loupe),
     ];
     Builtins {
         providers,

@@ -1,8 +1,8 @@
 //! A part of the screen: drag it out, then copy its text (Windows OCR),
 //! read its QR codes or search it with Google Lens. The launcher draws the
-//! selection and does the work (see `spotlight_platform_win::region`).
+//! selection and does the work (see `loupe_platform_win::region`).
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, RegionAction, SearchItem},
     item_id,
     provider::Provider,
@@ -83,7 +83,7 @@ impl Provider for ScreenRegion {
                     "screenshot",
                     "сканировать",
                 ])
-                .icon(Icon::Glyph(spotlight_qr::GLYPH))
+                .icon(Icon::Glyph(loupe_qr::GLYPH))
                 .action(
                     "Select Region",
                     Command::CaptureRegion(Some(RegionAction::ScanQrCode)),

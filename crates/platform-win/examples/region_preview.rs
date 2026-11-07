@@ -1,6 +1,6 @@
 //! Draws the region picker over a made-up screen into a PNG, to check its
 //! design without covering the real screen: `cargo run -p
-//! spotlight-platform-win --example region_preview -- out.png [hover]`.
+//! loupe-platform-win --example region_preview -- out.png [hover]`.
 
 use image::{Rgba, RgbaImage};
 use windows::Win32::Foundation::RECT;
@@ -30,6 +30,6 @@ fn main() {
         right: 790,
         bottom: 410,
     };
-    let image = spotlight_platform_win::region::preview(screen, selection, hover).unwrap();
+    let image = loupe_platform_win::region::preview(screen, selection, hover).unwrap();
     image.save(&out).unwrap();
 }

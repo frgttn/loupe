@@ -1,6 +1,6 @@
 [package]
-name = "spotlight"
-description = "Spotlight launcher binary: wiring, window lifecycle, self-test"
+name = "loupe"
+description = "Loupe launcher binary: wiring, window lifecycle, self-test"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -17,11 +17,11 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 async-channel.workspace = true
 gpui.workspace = true
 raw-window-handle.workspace = true
-spotlight-core.workspace = true
-spotlight-platform-win.workspace = true
-spotlight-providers.workspace = true
-spotlight-qr.workspace = true
-spotlight-store.workspace = true
-spotlight-ui.workspace = true
+loupe-core.workspace = true
+loupe-platform-win.workspace = true
+loupe-providers.workspace = true
+loupe-qr.workspace = true
+loupe-store.workspace = true
+loupe-ui.workspace = true
 tray-icon.workspace = true
 velopack.workspace = true

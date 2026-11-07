@@ -72,11 +72,11 @@ impl PaintProbe {
         let elapsed = ms(started.elapsed());
         match probe {
             Probe::FirstShow => {
-                eprintln!("[spotlight] hotkey -> painted: {elapsed:.2} ms (first show)");
+                eprintln!("[loupe] hotkey -> painted: {elapsed:.2} ms (first show)");
                 self.first_show_ms = Some(elapsed);
             }
             Probe::Show => {
-                eprintln!("[spotlight] hotkey -> painted: {elapsed:.2} ms");
+                eprintln!("[loupe] hotkey -> painted: {elapsed:.2} ms");
                 self.last_show_ms = Some(elapsed);
                 self.show_samples.push(elapsed);
             }

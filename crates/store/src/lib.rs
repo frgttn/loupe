@@ -2,7 +2,7 @@
 //! calculator history, quicklinks, the clipboard history and snippets.
 //!
 //! The database is SQLCipher: encrypted with a 256-bit key the caller keeps
-//! (see `spotlight_platform_win::vault`). Without a key it is plain SQLite.
+//! (see `loupe_platform_win::vault`). Without a key it is plain SQLite.
 //!
 //! Calls are blocking. They are short (one indexed row), but callers on the UI
 //! thread should still move writes to a background task.
@@ -14,14 +14,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use rusqlite::{Connection, OptionalExtension, params};
-pub use rusqlite::{Error, ErrorCode};
-use spotlight_core::{
+use loupe_core::{
     clip::{self, ClipKind, Retention, RichText},
     frecency::Frecency,
     quicklink::{self, Quicklink},
     snippet::Snippet,
 };
+use rusqlite::{Connection, OptionalExtension, params};
+pub use rusqlite::{Error, ErrorCode};
 
 pub type Result<T> = rusqlite::Result<T>;
 
@@ -672,7 +672,7 @@ impl Store {
     /// Adds `clip` to the clipboard history. When content with this `hash`
     /// is already there, that entry is replaced by a new one at the top
     /// (newer id, so it's first even within the same second), keeping its
-    /// pin, and its app if `clip` has none (as when Spotlight itself put it
+    /// pin, and its app if `clip` has none (as when Loupe itself put it
     /// back). Returns the new id and whether the content is new.
     pub fn add_clip(&mut self, clip: &Clip, hash: &str, rich: &RichText) -> Result<(i64, bool)> {
         let tx = self.conn.transaction()?;
@@ -1178,7 +1178,7 @@ mod tests {
         store
             .add_clip(&text_clip("b", 20), "hb", &RichText::default())
             .unwrap();
-        // Copied again, by Spotlight itself (no app): moves up, keeps its app.
+        // Copied again, by Loupe itself (no app): moves up, keeps its app.
         let again = Clip {
             app: None,
             ..text_clip("a", 30)
@@ -1320,7 +1320,7 @@ mod tests {
 
     #[test]
     fn visits_accumulate_and_persist() {
-        let dir = std::env::temp_dir().join(format!("spotlight-store-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-store-test-{}", std::process::id()));
         let path = dir.join("nested").join("test.db");
         let _ = fs::remove_dir_all(&dir);
 
@@ -1351,8 +1351,7 @@ mod tests {
 
     #[test]
     fn a_plain_database_is_encrypted_with_its_data() {
-        let dir =
-            std::env::temp_dir().join(format!("spotlight-cipher-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-cipher-test-{}", std::process::id()));
         let path = dir.join("test.db");
         let _ = fs::remove_dir_all(&dir);
         let key = [42u8; 32];
@@ -1389,7 +1388,7 @@ mod tests {
 
     #[test]
     fn a_new_database_is_encrypted_from_the_start() {
-        let dir = std::env::temp_dir().join(format!("spotlight-cipher-new-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-cipher-new-{}", std::process::id()));
         let path = dir.join("test.db");
         let _ = fs::remove_dir_all(&dir);
         let key = [9u8; 32];

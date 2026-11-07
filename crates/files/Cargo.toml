@@ -1,6 +1,6 @@
 [package]
-name = "spotlight-files"
-description = "File index for Spotlight: file names in an fst, a table of entries with changes applied in place, and ranked fuzzy search"
+name = "loupe-files"
+description = "File index for Loupe: file names in an fst, a table of entries with changes applied in place, and ranked fuzzy search"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true

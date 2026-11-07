@@ -1,6 +1,6 @@
 [package]
-name = "spotlight-ui"
-description = "GPUI views for Spotlight: launcher window and text input"
+name = "loupe-ui"
+description = "GPUI views for Loupe: launcher window and text input"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -15,9 +15,9 @@ gpui.workspace = true
 image = { workspace = true, features = ["png"] }
 pulldown-cmark.workspace = true
 raw-window-handle.workspace = true
-spotlight-core.workspace = true
-spotlight-platform-win.workspace = true
-spotlight-qr.workspace = true
-spotlight-search.workspace = true
-spotlight-store.workspace = true
+loupe-core.workspace = true
+loupe-platform-win.workspace = true
+loupe-qr.workspace = true
+loupe-search.workspace = true
+loupe-store.workspace = true
 unicode-segmentation.workspace = true

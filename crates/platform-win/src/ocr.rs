@@ -407,7 +407,7 @@ mod tests {
             lines: vec![vec![
                 word("Hello", 0.),
                 word("world,", 50.),
-                word("Spotlight", 100.),
+                word("Loupe", 100.),
             ]],
         };
         let russian = Reading {
@@ -418,6 +418,6 @@ mod tests {
                 word("SpotIight", 100.),
             ]],
         };
-        assert_eq!(merge(vec![russian, english]), "Hello world, Spotlight");
+        assert_eq!(merge(vec![russian, english]), "Hello world, Loupe");
     }
 }

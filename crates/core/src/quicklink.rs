@@ -606,7 +606,7 @@ pub fn fill_selection(link: &str, text: &str) -> String {
 /// `None` unless it is an `http(s)` URL with such an argument.
 pub fn search_template(link: &str) -> Option<String> {
     // Alphanumeric, so `fill` leaves it as it is.
-    const MARK: &str = "SPOTLIGHTQUERYMARK";
+    const MARK: &str = "LOUPEQUERYMARK";
     let arguments = arguments(link);
     if !arguments.iter().any(Argument::is_free_text) {
         return None;

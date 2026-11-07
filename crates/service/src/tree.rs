@@ -8,8 +8,8 @@
 
 use std::path::{Path, PathBuf};
 
-use spotlight_files::Listed;
-use spotlight_platform_win::{
+use loupe_files::Listed;
+use loupe_platform_win::{
     fswatch::Change,
     index_service::{Entry, ROOT},
     ntfs::{
@@ -366,7 +366,7 @@ impl Children {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_platform_win::ntfs::USN_REASON_FILE_CREATE;
+    use loupe_platform_win::ntfs::USN_REASON_FILE_CREATE;
 
     use super::*;
 

@@ -1,5 +1,5 @@
-//! The `spotlight://` URL scheme, registered for this user under
-//! `HKCU\Software\Classes`, so links start `spotlight.exe "<link>"`. A running
+//! The `loupe://` URL scheme, registered for this user under
+//! `HKCU\Software\Classes`, so links start `loupe.exe "<link>"`. A running
 //! instance gets the link over the instance pipe.
 
 use windows::{
@@ -13,7 +13,7 @@ use windows::{
 use crate::registry;
 
 /// Points the scheme at the running executable, unless it already does.
-/// Whichever copy of Spotlight ran last owns the links.
+/// Whichever copy of Loupe ran last owns the links.
 pub fn register(scheme: &str) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
     let exe = exe.display();
@@ -23,7 +23,7 @@ pub fn register(scheme: &str) -> Result<(), String> {
     if registry::string(&format!(r"HKCU\{open}"), "").as_deref() == Some(command.as_str()) {
         return Ok(());
     }
-    set(&key, "", "URL:Spotlight")?;
+    set(&key, "", "URL:Loupe")?;
     // Its presence marks the key as a URL scheme; the value is unused.
     set(&key, "URL Protocol", "")?;
     set(&format!(r"{key}\DefaultIcon"), "", &format!("\"{exe}\",0"))?;
@@ -31,7 +31,7 @@ pub fn register(scheme: &str) -> Result<(), String> {
 }
 
 /// Removes the scheme, if it points at the running executable: another copy
-/// of Spotlight may own the links now.
+/// of Loupe may own the links now.
 pub fn unregister(scheme: &str) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|err| err.to_string())?;
     let key = format!(r"Software\Classes\{scheme}");

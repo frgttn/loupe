@@ -18,7 +18,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use spotlight_platform_win::net;
+use loupe_platform_win::net;
 
 /// Rates against the US dollar.
 const URL: &str = "https://open.er-api.com/v6/latest/USD";

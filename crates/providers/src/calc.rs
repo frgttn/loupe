@@ -8,7 +8,7 @@ use std::{
 };
 
 use fend_core::{Context, ExchangeRateFnV2, ExchangeRateFnV2Options, Interrupt};
-use spotlight_core::{
+use loupe_core::{
     item::{AnswerCard, Command, Icon, SearchItem},
     item_id,
     provider::Provider,

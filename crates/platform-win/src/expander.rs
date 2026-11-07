@@ -16,7 +16,7 @@
 //! [`Ask`]); the keys held meanwhile go to the form.
 //!
 //! The hooks are installed only while there are keywords to look for. Keys
-//! Spotlight sends itself, keys in Spotlight's own windows, keys in password
+//! Loupe sends itself, keys in Loupe's own windows, keys in password
 //! fields and keys in the apps the user excluded are never expanded.
 
 use std::{
@@ -31,7 +31,7 @@ use std::{
     time::Duration,
 };
 
-use spotlight_core::snippet::{self, Inputs, Typed};
+use loupe_core::snippet::{self, Inputs, Typed};
 use windows::Win32::System::SystemInformation::GetTickCount64;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
@@ -496,7 +496,7 @@ fn is_modifier(vk: u32) -> bool {
     .any(|key| u32::from(key.0) == vk)
 }
 
-/// Spotlight's own windows (the launcher, Settings): a keyword typed there
+/// Loupe's own windows (the launcher, Settings): a keyword typed there
 /// is being edited, not used.
 fn is_ours(window: isize) -> bool {
     let mut pid = 0;

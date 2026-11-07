@@ -1,5 +1,5 @@
-//! Search Files: the user's own file index (`spotlight-files`), kept up to
-//! date while Spotlight runs.
+//! Search Files: the user's own file index (`loupe-files`), kept up to
+//! date while Loupe runs.
 //!
 //! [`Files::start`] walks the scope (the user profile and folders added in
 //! Settings) on a thread of its own, then watches each scope root for changes
@@ -18,7 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spotlight_core::{
+use loupe_core::{
     clip,
     file_search::{Config, Status, profile, thousands},
     frecency::{self, Frecency},
@@ -27,18 +27,18 @@ use spotlight_core::{
     provider::Provider,
     view::{ListFilter, ListView, LiveRows, Preview, PreviewBody, View},
 };
-use spotlight_files::{
+use loupe_files::{
     Builder, EntryId, Exclusions, Hit, Index, Kind, Listed, Query, ScanOptions, SearchOptions,
     add_tree, is_excluded, root_check, scan_into,
 };
-use spotlight_platform_win::{
+use loupe_platform_win::{
     fswalk,
     fswatch::{self, Change, Watcher},
     index_service::{ALL_ROOTS, Client, Entry as ServiceEntry, FromService, ROOT, ToService},
     ntfs,
 };
 
-use spotlight_store::Store;
+use loupe_store::Store;
 
 use crate::glyph;
 
@@ -87,7 +87,7 @@ struct Shared {
     generation: AtomicU64,
     /// The scope roots' watchers; dropping them stops them.
     watchers: Mutex<Vec<Watcher>>,
-    /// Files opened from Spotlight, by folded path: their path and frecency.
+    /// Files opened from Loupe, by folded path: their path and frecency.
     opened: Mutex<HashMap<String, (PathBuf, Frecency)>>,
     store: Option<Arc<Mutex<Store>>>,
     /// Told when the config changes from here (a busy folder left out).
@@ -643,7 +643,7 @@ impl Shared {
 }
 
 impl Shared {
-    /// `from` was renamed to `to`: files opened from Spotlight there (it, or
+    /// `from` was renamed to `to`: files opened from Loupe there (it, or
     /// what is inside it) keep how often they were opened.
     fn moved(&self, from: &Path, to: &Path) {
         let from_text = from.to_string_lossy();
@@ -846,8 +846,8 @@ fn add_or_update(index: &mut Index, rules: &Exclusions, path: &Path) {
     }
 }
 
-fn meta(listed: &Listed) -> spotlight_files::Meta<'_> {
-    spotlight_files::Meta {
+fn meta(listed: &Listed) -> loupe_files::Meta<'_> {
+    loupe_files::Meta {
         name: &listed.name,
         dir: listed.dir,
         hidden: listed.hidden,
@@ -1088,7 +1088,7 @@ mod tests {
     /// file being created, renamed, moved into a new folder and deleted.
     #[test]
     fn follows_changes_on_disk() {
-        let dir = std::env::temp_dir().join(format!("spotlight-files-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-files-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("zqx-before.txt"), "x").unwrap();
@@ -1126,8 +1126,7 @@ mod tests {
         ));
 
         // A folder made elsewhere and moved in brings what it holds.
-        let outside =
-            std::env::temp_dir().join(format!("spotlight-files-out-{}", std::process::id()));
+        let outside = std::env::temp_dir().join(format!("loupe-files-out-{}", std::process::id()));
         let _ = fs::remove_dir_all(&outside);
         fs::create_dir_all(outside.join("inner")).unwrap();
         fs::write(outside.join("inner").join("zqx-deep.pdf"), "x").unwrap();
@@ -1175,7 +1174,7 @@ mod tests {
 
     #[test]
     fn opened_files_come_first_and_rank_higher() {
-        let dir = std::env::temp_dir().join(format!("spotlight-opened-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-opened-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("zqo-report-old.txt"), "x").unwrap();
@@ -1217,7 +1216,7 @@ mod tests {
     /// file keeps how often it was opened.
     #[test]
     fn excluded_folders_and_renamed_files() {
-        let dir = std::env::temp_dir().join(format!("spotlight-exclude-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-exclude-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let drafts = dir.join("zqe-drafts");
         fs::create_dir_all(&drafts).unwrap();

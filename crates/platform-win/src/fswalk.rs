@@ -5,7 +5,7 @@
 
 use std::{io, path::Path};
 
-use spotlight_files::Listed;
+use loupe_files::Listed;
 use windows::{
     Win32::{
         Foundation::{ERROR_FILE_NOT_FOUND, ERROR_NO_MORE_FILES, FILETIME},
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn lists_names_kinds_and_times() {
-        let dir = std::env::temp_dir().join(format!("spotlight-fswalk-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-fswalk-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("sub")).unwrap();
         fs::write(dir.join("a.txt"), "x").unwrap();

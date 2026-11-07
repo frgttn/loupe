@@ -1,4 +1,4 @@
-//! Talking to `spotlight-service.exe`, the optional file index service.
+//! Talking to `loupe-service.exe`, the optional file index service.
 //!
 //! The service reads NTFS volumes' file tables and change journals, which
 //! takes administrator rights, and hands the launcher what is under its scope
@@ -18,7 +18,7 @@ use std::{
     time::Duration,
 };
 
-use spotlight_files::Listed;
+use loupe_files::Listed;
 use windows::{
     Win32::{
         Foundation::{CloseHandle, GENERIC_READ, GENERIC_WRITE},
@@ -44,9 +44,9 @@ use windows::{
 use crate::fswatch::Change;
 
 /// The pipe the service listens on; one per machine.
-pub const PIPE: &str = r"\\.\pipe\spotlight-index";
+pub const PIPE: &str = r"\\.\pipe\loupe-index";
 /// The service's name in the Service Control Manager.
-pub const SERVICE: &str = "SpotlightIndex";
+pub const SERVICE: &str = "LoupeIndex";
 /// Bumped when the messages change; the service refuses other versions.
 pub const VERSION: u32 = 1;
 /// A frame larger than this is a broken stream, not a message.
@@ -138,10 +138,10 @@ pub fn state() -> State {
     }
 }
 
-/// `spotlight-service.exe` next to this executable, as a build puts it.
+/// `loupe-service.exe` next to this executable, as a build puts it.
 pub fn service_exe() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
-    let service = exe.parent()?.join("spotlight-service.exe");
+    let service = exe.parent()?.join("loupe-service.exe");
     service.exists().then_some(service)
 }
 
@@ -158,7 +158,7 @@ pub fn uninstall() -> Result<(), String> {
 }
 
 fn run_elevated(arguments: &str) -> Result<(), String> {
-    let service = service_exe().ok_or("spotlight-service.exe isn't next to Spotlight")?;
+    let service = service_exe().ok_or("loupe-service.exe isn't next to Loupe")?;
     let file = HSTRING::from(service.as_os_str());
     let parameters = HSTRING::from(arguments);
     let verb = HSTRING::from("runas");
@@ -185,7 +185,7 @@ fn run_elevated(arguments: &str) -> Result<(), String> {
             Err(format!(
                 "The service's installer failed (exit code {code}); see {}",
                 PathBuf::from(std::env::var_os("ProgramData").unwrap_or_default())
-                    .join(r"Spotlight\service.log")
+                    .join(r"Loupe\service.log")
                     .display()
             ))
         }

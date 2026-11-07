@@ -1,14 +1,14 @@
 //! Indexes a real folder with a plain `std::fs` walk, then runs queries on it.
 //! The real walker (parallel, `FindFirstFileExW`) comes with Search Files.
 //!
-//! `cargo run --release -p spotlight-files --example walk -- <folder> [query]…`
+//! `cargo run --release -p loupe-files --example walk -- <folder> [query]…`
 
 use std::{
     path::{Path, PathBuf},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-use spotlight_files::{Builder, EntryId, Meta, Query, SearchOptions};
+use loupe_files::{Builder, EntryId, Meta, Query, SearchOptions};
 
 fn walk(builder: &mut Builder, dir: &Path, id: EntryId) {
     let Ok(read) = std::fs::read_dir(dir) else {

@@ -1,13 +1,13 @@
 //! Capture Screen Region: the launcher hides, the user drags out a part of
-//! the screen (see `spotlight_platform_win::region`), and its text is copied
+//! the screen (see `loupe_platform_win::region`), and its text is copied
 //! (Windows OCR), its QR codes are read, or it's searched with Google Lens
 //! in the browser.
 
 use std::{thread, time::Duration};
 
 use gpui::{ClipboardItem, Context, Window};
-use spotlight_core::item::RegionAction;
-use spotlight_platform_win::{lens, ocr, region};
+use loupe_core::item::RegionAction;
+use loupe_platform_win::{lens, ocr, region};
 
 use super::Launcher;
 
@@ -46,7 +46,7 @@ impl Launcher {
             thread::spawn(move || {
                 let done = match picked.action {
                     RegionAction::CopyText => ocr::read(&picked.image).map(Done::Text),
-                    RegionAction::ScanQrCode => Ok(Done::Codes(spotlight_qr::read(&picked.image))),
+                    RegionAction::ScanQrCode => Ok(Done::Codes(loupe_qr::read(&picked.image))),
                     RegionAction::GoogleLens => {
                         lens::search(&picked.image).map(|()| Done::Searched)
                     }

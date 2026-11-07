@@ -1,6 +1,6 @@
 # Architecture plan
 
-Spotlight is a keyboard launcher for Windows, in the spirit of Raycast and Spotlight, written in pure Rust.
+Loupe is a keyboard launcher for Windows, in the spirit of Raycast, written in pure Rust.
 
 **Decisions:**
 - **Single native process** in Rust, with a **GPUI** UI. Why GPUI: see [ui-framework-decision.md](ui-framework-decision.md).
@@ -15,7 +15,7 @@ Spotlight is a keyboard launcher for Windows, in the spirit of Raycast and Spotl
 ## 1. Process model
 
 ```
-spotlight.exe (single process, Rust)
+loupe.exe (single process, Rust)
 ├─ UI thread: GPUI app. Launcher window (prewarmed, hidden), settings window
 ├─ tokio runtime: search providers, indexing, IO, script runs
 ├─ win thread: message loop for low-level keyboard hook + WinEvent hooks + clipboard listener
@@ -104,13 +104,13 @@ outside source of views.
 
 Script commands are a simple, language-agnostic way to extend the launcher.
 
-- **Location:** `%APPDATA%\spotlight\scripts\`, plus folders the user adds, watched with `notify`.
+- **Location:** `%APPDATA%\loupe\scripts\`, plus folders the user adds, watched with `notify`.
 - **Metadata** goes in a header comment, so a `.ps1`, `.py`, `.cmd` or `.exe` file needs no other config:
   ```
-  # @spotlight.title      Toggle VPN
-  # @spotlight.mode       silent | hud | list | detail
-  # @spotlight.argument1  { "placeholder": "query", "optional": true }
-  # @spotlight.icon       🔒
+  # @loupe.title      Toggle VPN
+  # @loupe.mode       silent | hud | list | detail
+  # @loupe.argument1  { "placeholder": "query", "optional": true }
+  # @loupe.icon       🔒
   ```
 - **Running:** the script is spawned with its arguments. A timeout and a cap on stdout size protect the app.
 - **Output by mode:**
@@ -126,7 +126,7 @@ Script commands are a simple, language-agnostic way to extend the launcher.
 - **Languages:** Rust, or any language that compiles to WASI components. If an author wants JS via componentize, that's their choice; we don't ship a JS engine.
 - **WIT sketch:**
   ```wit
-  package spotlight:plugin@0.1.0;
+  package loupe:plugin@0.1.0;
   interface types { /* search-item, action, view: mirror core::View */ }
   interface host {                      // capabilities, each gated by a manifest permission
     http-fetch: func(req: request) -> result<response, string>;
@@ -165,7 +165,7 @@ Script commands are a simple, language-agnostic way to extend the launcher.
 | Win+V | Can't be registered (Windows owns it): a `WH_KEYBOARD_LL` hook on the hotkey thread swallows the V, then taps an unused key so releasing Win doesn't open Start |
 | Selected text | Read only when a command with `{selection}` runs: the launcher hands the foreground back to the app it came from, then UIA (`GetFocusedElement` → `TextPattern.GetSelection`, same process only). Otherwise, unless turned off or the window is a terminal, simulated Ctrl+C: the clipboard is copied aside format by format, the selection read, the clipboard put back, and the history skips those changes (by clipboard sequence number) |
 | Window management | `SetWindowPos`, `MonitorFromWindow`, `GetMonitorInfoW`, `SetWinEventHook` |
-| Single instance + deeplinks | Named mutex + named pipe; `spotlight://` registered under `HKCU\Software\Classes` |
+| Single instance + deeplinks | Named mutex + named pipe; `loupe://` registered under `HKCU\Software\Classes` |
 | Login item | `HKCU\...\Run` |
 
 GPUI gotcha: with `WindowOptions { show: false }`, GPUI applies the window size only in its own `activate()`. If the window is shown through Win32, set the size yourself, DPI-aware; otherwise it stays `CW_USEDEFAULT` (nearly full screen).
@@ -192,7 +192,7 @@ GPUI gotcha: with `WindowOptions { show: false }`, GPUI applies the window size 
 2. Root search core, part 2: ✅ action panel (Ctrl+K), ✅ view stack (List / Grid / Detail / Form, Esc goes back), ✅ HUD and toasts, ✅ aliases and per-item hotkeys, ✅ calculator currencies and history; ✅ more sources (Settings pages, Control Panel, Steam / Epic / GOG / Ubisoft games); still to do: frecency tuning.
 3. ✅ Quicklinks (with `!keyword` searches); ✅ clipboard history: text, links, colours, files and images (PNG files plus a 640 px copy for the preview), pinning, filters (Tab), retention by age and count, ignored apps, paste into the previous app, Win+V as an option. Lists can show a preview of the selected row (`SearchItem::preview`) and a filter (`ListView::filters`). Still to do: snippets (with expansion).
    ✅ Selected text: `{selection}` in `OpenUrl` URLs and quicklinks (`Command::needs_selection` / `with_selection`), the Selected Text source (Search Selection on the Web, Translate Selection); turning the source off means the selection is never read, and Settings can forbid the Ctrl+C fallback.
-3.5 ✅ Database encryption: `rusqlite` with `bundled-sqlcipher`. SQLCipher's crypto is Windows CNG (`vendor/libsqlite3-sys/sqlcipher/crypto_cng.c`, a patched `libsqlite3-sys`), so building needs no OpenSSL or Perl; the format is standard SQLCipher 4. The key is 32 random bytes in Credential Manager (generic credential `Spotlight/database`, as Raycast keeps its `main.db` key), used raw (`x'…'`), so nothing to type. A plain database is converted once with `sqlcipher_export`. Clipboard images are sealed with AES-256-GCM (CNG) under a key derived from the database key (`platform-win::vault`); older plain images are sealed at startup. A database the saved key can't read is renamed to `spotlight.unreadable-<time>.db` and a new one starts.
+3.5 ✅ Database encryption: `rusqlite` with `bundled-sqlcipher`. SQLCipher's crypto is Windows CNG (`vendor/libsqlite3-sys/sqlcipher/crypto_cng.c`, a patched `libsqlite3-sys`), so building needs no OpenSSL or Perl; the format is standard SQLCipher 4. The key is 32 random bytes in Credential Manager (generic credential `Loupe/database`, as Raycast keeps its `main.db` key), used raw (`x'…'`), so nothing to type. A plain database is converted once with `sqlcipher_export`. Clipboard images are sealed with AES-256-GCM (CNG) under a key derived from the database key (`platform-win::vault`); older plain images are sealed at startup. A database the saved key can't read is renamed to `loupe.unreadable-<time>.db` and a new one starts.
 4. Window management, file search.
 5. Script commands.
 6. WASM plugin host + SDK + 2–3 sample plugins.

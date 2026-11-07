@@ -1,6 +1,6 @@
-//! Commands about Spotlight itself.
+//! Commands about Loupe itself.
 
-use spotlight_core::{
+use loupe_core::{
     item::{Command, Icon, SearchItem},
     item_id,
     provider::Provider,
@@ -9,9 +9,9 @@ use spotlight_core::{
 
 use crate::glyph;
 
-pub const ID: &str = "spotlight";
+pub const ID: &str = "loupe";
 
-pub struct Spotlight;
+pub struct Loupe;
 
 const SHORTCUTS: &str = "\
 ## Search
@@ -45,17 +45,17 @@ const SHORTCUTS: &str = "\
 - **{date}**, **{time}** and **{uuid}** are filled in when the link opens
 ";
 
-impl Provider for Spotlight {
+impl Provider for Loupe {
     fn id(&self) -> &'static str {
         ID
     }
 
     fn name(&self) -> &'static str {
-        "Spotlight Commands"
+        "Loupe Commands"
     }
 
     fn description(&self) -> &'static str {
-        "Commands about Spotlight itself, such as Keyboard Shortcuts."
+        "Commands about Loupe itself, such as Keyboard Shortcuts."
     }
 
     fn catalog(&self) -> Vec<SearchItem> {
@@ -68,7 +68,7 @@ impl Provider for Spotlight {
         });
         vec![
             SearchItem::new(item_id(ID, "shortcuts"), "Keyboard Shortcuts")
-                .subtitle("Spotlight")
+                .subtitle("Loupe")
                 .keywords(&["help", "keys", "hotkeys"])
                 .icon(Icon::Glyph(glyph::KEYBOARD))
                 .action("Show Shortcuts", Command::PushView(Box::new(shortcuts))),

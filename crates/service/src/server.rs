@@ -3,7 +3,7 @@
 //! The service reads the volume past every folder's access rules, so it
 //! guards what it hands out:
 //! - The pipe is for SYSTEM and interactive users, local only.
-//! - A caller must be one of the Spotlight executables the installer named.
+//! - A caller must be one of the Loupe executables the installer named.
 //! - Every folder in a snapshot, and the folder of every change sent, is
 //!   checked as the caller (with its token, impersonated): one the caller
 //!   couldn't list itself is left out with everything in it.
@@ -21,7 +21,7 @@ use std::{
     thread,
 };
 
-use spotlight_platform_win::{
+use loupe_platform_win::{
     fswalk,
     fswatch::Change,
     index_service::{self, FromService, ToService},
@@ -238,7 +238,7 @@ impl Server {
         let caller = caller_path(pipe)?;
         if !self.clients.contains(&fold(&caller)) {
             let why = format!(
-                "{} isn't the Spotlight the service was installed for; install it again from this one",
+                "{} isn't the Loupe the service was installed for; install it again from this one",
                 caller.display()
             );
             // Says why before closing; it names nothing but the caller.
@@ -482,7 +482,7 @@ fn to_io(err: windows::core::Error) -> io::Error {
 mod tests {
     use std::time::Duration;
 
-    use spotlight_platform_win::{
+    use loupe_platform_win::{
         index_service::{Client, ROOT},
         ntfs::{USN_REASON_CLOSE, USN_REASON_FILE_CREATE},
     };
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn serves_a_snapshot_then_changes() {
-        let pipe = format!(r"\\.\pipe\spotlight-index-test-{}", std::process::id());
+        let pipe = format!(r"\\.\pipe\loupe-index-test-{}", std::process::id());
         let (server, disk) = server(&pipe, vec![std::env::current_exe().unwrap()]);
         let mut client = connect(&pipe);
         client
@@ -586,7 +586,7 @@ mod tests {
     /// refuses) and checks each root as the caller.
     #[test]
     fn checks_roots_as_the_caller() {
-        let pipe = format!(r"\\.\pipe\spotlight-index-test-gate-{}", std::process::id());
+        let pipe = format!(r"\\.\pipe\loupe-index-test-gate-{}", std::process::id());
         let (server, _) = serve(&pipe, vec![std::env::current_exe().unwrap()], true);
         let mut client = connect(&pipe);
         let readable = std::env::temp_dir();
@@ -610,13 +610,10 @@ mod tests {
 
     #[test]
     fn refuses_other_programs() {
-        let pipe = format!(
-            r"\\.\pipe\spotlight-index-test-refuse-{}",
-            std::process::id()
-        );
+        let pipe = format!(r"\\.\pipe\loupe-index-test-refuse-{}", std::process::id());
         let (server, _) = server(
             &pipe,
-            vec![PathBuf::from(r"C:\Program Files\Spotlight\Spotlight.exe")],
+            vec![PathBuf::from(r"C:\Program Files\Loupe\Loupe.exe")],
         );
         let mut client = connect(&pipe);
         let _ = client.send(&ToService::Watch {

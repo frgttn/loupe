@@ -1,6 +1,6 @@
 [package]
-name = "spotlight-providers"
-description = "Built-in root-search providers for Spotlight: apps, system commands, calculator, web, quicklinks, clipboard history, snippets, file search"
+name = "loupe-providers"
+description = "Built-in root-search providers for Loupe: apps, system commands, calculator, web, quicklinks, clipboard history, snippets, file search"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
@@ -14,8 +14,8 @@ fend-core.workspace = true
 # Preview-sized copies of clipboard images.
 image = { workspace = true, features = ["png"] }
 serde_json.workspace = true
-spotlight-core.workspace = true
-spotlight-files.workspace = true
-spotlight-platform-win.workspace = true
-spotlight-qr.workspace = true
-spotlight-store.workspace = true
+loupe-core.workspace = true
+loupe-files.workspace = true
+loupe-platform-win.workspace = true
+loupe-qr.workspace = true
+loupe-store.workspace = true

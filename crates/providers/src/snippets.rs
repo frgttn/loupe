@@ -1,4 +1,4 @@
-//! Snippets: text the user saved under a name (see `spotlight_core::snippet`).
+//! Snippets: text the user saved under a name (see `loupe_core::snippet`).
 //! Search Snippets lists them with a preview; Enter pastes one into the app
 //! the launcher was opened from, after a form when it has arguments.
 //!
@@ -7,14 +7,14 @@
 
 use std::sync::{Arc, Mutex};
 
-use spotlight_core::{
+use loupe_core::{
     item::{Action, Command, Icon, SearchItem, shortcut},
     item_id,
     provider::Provider,
     snippet::{self, Snippet},
     view::{Field, FieldKind, FormView, ListView, Preview, PreviewBody, View},
 };
-use spotlight_store::Store;
+use loupe_store::Store;
 
 use crate::glyph;
 
@@ -247,7 +247,7 @@ fn preview(snippet: &Snippet) -> Preview {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_core::view::FieldValue;
+    use loupe_core::view::FieldValue;
 
     use super::*;
 

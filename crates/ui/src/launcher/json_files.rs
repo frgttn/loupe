@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use gpui::Context;
-use spotlight_platform_win::{
+use loupe_platform_win::{
     dialog::{self, FileType, Request},
     links,
 };
@@ -83,7 +83,7 @@ fn picked_path(
     match answer {
         Ok(Ok(path)) => path,
         Ok(Err(err)) => {
-            eprintln!("[spotlight] the file dialog failed: {err}");
+            eprintln!("[loupe] the file dialog failed: {err}");
             None
         }
         Err(_) => None,

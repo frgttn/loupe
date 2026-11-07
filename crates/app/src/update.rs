@@ -1,9 +1,9 @@
-//! Installing, updating and removing Spotlight through Velopack.
+//! Installing, updating and removing Loupe through Velopack.
 //!
-//! The installer (`Spotlight-win-Setup.exe`, made by `vpk pack` in
-//! `.github/workflows/release.yml`) puts Spotlight in
-//! `%LocalAppData%\Spotlight\current`, which stays the same path across
-//! updates, so start at login, the `spotlight://` links and the index
+//! The installer (`Loupe-win-Setup.exe`, made by `vpk pack` in
+//! `.github/workflows/release.yml`) puts Loupe in
+//! `%LocalAppData%\Loupe\current`, which stays the same path across
+//! updates, so start at login, the `loupe://` links and the index
 //! service's allowed client keep pointing at it.
 //!
 //! Updates come from the repository's GitHub Releases: a check a minute
@@ -17,8 +17,8 @@ use std::{
     time::Duration,
 };
 
-use spotlight_core::{deeplink, update::Status};
-use spotlight_platform_win::{autostart, index_service, protocol};
+use loupe_core::{deeplink, update::Status};
+use loupe_platform_win::{autostart, index_service, protocol};
 use velopack::{UpdateCheck, UpdateInfo, UpdateManager, VelopackApp, sources::GithubSource};
 
 /// The first check, after start has settled.
@@ -30,16 +30,16 @@ const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 /// `main`, before anything else starts.
 pub fn run_installer_hooks() {
     VelopackApp::build()
-        // Like Raycast, Spotlight starts at login once installed; the tray
+        // Like Raycast, Loupe starts at login once installed; the tray
         // and Settings turn it off.
         .on_after_install_fast_callback(|_| {
             if let Err(err) = autostart::set_enabled(true) {
                 eprintln!("[update] could not turn on start at login: {err}");
             }
         })
-        // The installer removes the program; what Spotlight registered
+        // The installer removes the program; what Loupe registered
         // outside it goes too. The data in %APPDATA% stays, as with most
-        // apps, in case Spotlight is installed again.
+        // apps, in case Loupe is installed again.
         .on_before_uninstall_fast_callback(|_| {
             if autostart::is_enabled()
                 && let Err(err) = autostart::set_enabled(false)
@@ -51,7 +51,7 @@ pub fn run_installer_hooks() {
             }
             // It runs as LocalSystem from %ProgramFiles%, so removing it
             // takes the UAC prompt; declined, it stays until removed from an
-            // elevated `spotlight-service.exe uninstall`.
+            // elevated `loupe-service.exe uninstall`.
             if index_service::state() != index_service::State::NotInstalled
                 && let Err(err) = index_service::uninstall()
             {
@@ -64,7 +64,7 @@ pub fn run_installer_hooks() {
 /// Checks for, downloads and applies updates. Shared between the checking
 /// thread and the UI thread.
 pub struct Updater {
-    /// `None` when Spotlight wasn't installed by the installer.
+    /// `None` when Loupe wasn't installed by the installer.
     manager: Option<UpdateManager>,
     status: Mutex<Status>,
     /// The downloaded update, once there is one.

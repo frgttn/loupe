@@ -2,7 +2,7 @@
 //! exe's icon (Explorer, taskbar, Alt+Tab) and its version (Properties ›
 //! Details).
 //!
-//! `SPOTLIGHT_VERSION` is the version in the workspace `Cargo.toml` for a
+//! `LOUPE_VERSION` is the version in the workspace `Cargo.toml` for a
 //! release build (`--release`), `0.1.0`, and that plus the day it was built
 //! for a dev build, `0.1.0.20261024`, so it's clear which build of the working
 //! branch is running. The date is the build machine's local one.
@@ -23,7 +23,7 @@ fn main() {
         println!("cargo:rerun-if-changed=rerun-every-build");
         format!("{semver}.{}", today())
     };
-    println!("cargo:rustc-env=SPOTLIGHT_VERSION={version}");
+    println!("cargo:rustc-env=LOUPE_VERSION={version}");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let rc = out_dir.join("app.rc");
@@ -57,11 +57,11 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "FileDescription", "Spotlight"
+            VALUE "FileDescription", "Loupe"
             VALUE "FileVersion", "{version}"
-            VALUE "InternalName", "spotlight"
-            VALUE "OriginalFilename", "spotlight.exe"
-            VALUE "ProductName", "Spotlight"
+            VALUE "InternalName", "loupe"
+            VALUE "OriginalFilename", "loupe.exe"
+            VALUE "ProductName", "Loupe"
             VALUE "ProductVersion", "{version}"
         END
     END

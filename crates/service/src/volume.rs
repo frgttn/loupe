@@ -18,7 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spotlight_platform_win::{
+use loupe_platform_win::{
     fswatch::Change,
     index_service::Entry,
     ntfs::{self, Journal, Record},
@@ -397,13 +397,13 @@ pub mod fake {
 mod tests {
     use std::path::PathBuf;
 
-    use spotlight_platform_win::ntfs::{USN_REASON_CLOSE, USN_REASON_FILE_CREATE};
+    use loupe_platform_win::ntfs::{USN_REASON_CLOSE, USN_REASON_FILE_CREATE};
 
     use super::{fake::*, *};
 
     #[test]
     fn follows_the_journal_and_resumes_from_a_snapshot() {
-        let dir = std::env::temp_dir().join(format!("spotlight-volume-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-volume-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let store = Store::open(&dir).unwrap();
         let disk = disk();

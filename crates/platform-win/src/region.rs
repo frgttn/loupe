@@ -9,7 +9,7 @@
 use std::{ffi::c_void, mem::size_of, ptr, thread};
 
 use image::RgbaImage;
-use spotlight_core::item::RegionAction;
+use loupe_core::item::RegionAction;
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
@@ -121,7 +121,7 @@ pub fn preview(
     }
 }
 
-const CLASS: PCWSTR = w!("SpotlightRegionPicker");
+const CLASS: PCWSTR = w!("LoupeRegionPicker");
 /// Smaller than this (physical pixels) on both sides is a click, not a region.
 const MIN_SIDE: i32 = 4;
 /// How much the black laid over the still outside the selection hides of

@@ -1,6 +1,6 @@
 //! Window management: moving and resizing other apps' windows, switching to
 //! them, closing them, and ending processes. Where layouts put a window is
-//! worked out in `spotlight_core::window`; this only reads and moves them.
+//! worked out in `loupe_core::window`; this only reads and moves them.
 //!
 //! Rectangles are the visible frame (DWM's extended frame bounds), not
 //! `GetWindowRect`, which on Windows 10 and 11 includes an invisible resize
@@ -16,7 +16,7 @@ use std::{
     },
 };
 
-use spotlight_core::window::{self, Rect, WindowCommand};
+use loupe_core::window::{self, Rect, WindowCommand};
 use windows::{
     Win32::{
         Foundation::{
@@ -171,7 +171,7 @@ fn process_aumid(pid: u32) -> Option<String> {
     }
 }
 
-/// Every app window except Spotlight's, front to back.
+/// Every app window except Loupe's, front to back.
 pub fn windows() -> Vec<WindowInfo> {
     let own = unsafe { GetCurrentProcessId() };
     let mut names: HashMap<String, String> = HashMap::new();
@@ -202,7 +202,7 @@ pub fn windows() -> Vec<WindowInfo> {
         .collect()
 }
 
-/// This session's processes (not services, not Spotlight), most memory first.
+/// This session's processes (not services, not Loupe), most memory first.
 pub fn processes() -> Vec<ProcessInfo> {
     let own = unsafe { GetCurrentProcessId() };
     let session = session_of(own);
@@ -387,7 +387,7 @@ pub fn force_quit(pid: u32) -> Outcome {
     unsafe {
         let process = OpenProcess(PROCESS_TERMINATE, false, pid).map_err(|err| {
             if err.code() == ERROR_ACCESS_DENIED.to_hresult() {
-                format!("Windows doesn't let Spotlight end {name} (it runs as administrator)")
+                format!("Windows doesn't let Loupe end {name} (it runs as administrator)")
             } else {
                 format!("Couldn't end {name}: {err}")
             }
@@ -400,7 +400,7 @@ pub fn force_quit(pid: u32) -> Outcome {
 }
 
 /// Brings `target` to the front, restoring it if minimized. Works while
-/// Spotlight got the last input (the key that ran the command).
+/// Loupe got the last input (the key that ran the command).
 fn focus(target: isize) -> Outcome {
     let window = hwnd(target);
     unsafe {
@@ -553,7 +553,7 @@ fn denied_or(err: windows::core::Error, message: &str) -> String {
     if err.code() == ERROR_ACCESS_DENIED.to_hresult()
         || unsafe { GetLastError() } == ERROR_ACCESS_DENIED
     {
-        "Windows doesn't let Spotlight move windows of apps running as administrator".into()
+        "Windows doesn't let Loupe move windows of apps running as administrator".into()
     } else {
         format!("{message}: {err}")
     }
@@ -747,7 +747,7 @@ mod tests {
     }
 
     /// Arranges a window of its own (shown without taking focus, then
-    /// destroyed). Run by hand: `cargo test -p spotlight-platform-win -- --ignored`.
+    /// destroyed). Run by hand: `cargo test -p loupe-platform-win -- --ignored`.
     #[test]
     #[ignore = "shows a window"]
     fn arranges_a_window() {
@@ -763,7 +763,7 @@ mod tests {
             CreateWindowExW(
                 WINDOW_EX_STYLE(0),
                 w!("STATIC"),
-                w!("Spotlight window management test"),
+                w!("Loupe window management test"),
                 WS_OVERLAPPEDWINDOW,
                 200,
                 150,

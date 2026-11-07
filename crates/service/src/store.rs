@@ -11,7 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use spotlight_platform_win::vault::{self, Key};
+use loupe_platform_win::vault::{self, Key};
 
 use crate::tree::Tree;
 
@@ -94,13 +94,13 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use spotlight_platform_win::ntfs::Record;
+    use loupe_platform_win::ntfs::Record;
 
     use super::*;
 
     #[test]
     fn snapshots_round_trip_sealed() {
-        let dir = std::env::temp_dir().join(format!("spotlight-store-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("loupe-store-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let store = Store::open(&dir).unwrap();
         let mut tree = Tree::new(5, PathBuf::from(r"D:\"));
