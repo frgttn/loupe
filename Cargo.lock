@@ -3507,6 +3507,8 @@ dependencies = [
  "objc2-foundation",
  "objc2-quartz-core",
  "raw-window-handle",
+ "ring",
+ "security-framework",
 ]
 
 [[package]]
