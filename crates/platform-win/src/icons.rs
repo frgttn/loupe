@@ -19,12 +19,8 @@ use windows::{
     core::{HSTRING, Result},
 };
 
-/// A decoded icon: `width * height` pixels, BGRA, straight (not premultiplied) alpha.
-pub struct Icon {
-    pub width: u32,
-    pub height: u32,
-    pub bgra: Vec<u8>,
-}
+/// What an icon decodes to; shared with sites' icons (`loupe_platform::favicon`).
+pub use loupe_core::icon::Icon;
 
 /// Extracts the icon of a shell item, `size` pixels square. `parsing_name`
 /// is a file path, an absolute parsing name (`::{…}`), or

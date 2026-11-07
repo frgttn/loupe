@@ -10,9 +10,9 @@ use std::{
 };
 
 use image::imageops::FilterType;
-use loupe_core::favicon;
+use loupe_core::{favicon, icon::Icon};
 
-use crate::{icons::Icon, net};
+use crate::os::net;
 
 /// Downloads at once; each waits on the network, not the CPU.
 const WORKERS: usize = 4;

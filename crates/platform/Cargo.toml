@@ -8,5 +8,11 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+async-channel.workspace = true
+# Sites' icons come in any of these; Lens gets a PNG.
+image = { workspace = true, features = ["png", "ico", "bmp", "jpeg", "gif", "webp"] }
+loupe-core.workspace = true
+
 [target.'cfg(windows)'.dependencies]
 loupe-platform-win.workspace = true
