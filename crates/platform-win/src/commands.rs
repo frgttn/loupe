@@ -144,6 +144,7 @@ fn run_blocking(command: &Command) -> Outcome {
         | Command::CopyQrCode(_)
         | Command::SaveQrCode(_)
         | Command::ScanQrCodes(_)
+        | Command::CaptureRegion(_)
         | Command::Complete(_) => Err(format!("{command:?} must be handled by the UI")),
         Command::System(command) => system::run_blocking(*command),
         Command::Window {

@@ -16,18 +16,30 @@ spotlight-core.workspace = true
 # `Listed`, what a folder listing gives the file index.
 spotlight-files.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+# Points and matrices for Direct2D (the region picker's drawing).
+windows-numerics.workspace = true
+
 [target.'cfg(windows)'.dependencies.windows]
 workspace = true
 features = [
     "Devices_Radios",
     "Foundation_Collections",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
     "Storage_Streams",
+    "System_UserProfile",
     "Web_Http",
     "Web_Http_Headers",
     "Win32_Devices_Display",
     "Win32_Foundation",
     "Win32_Globalization",
+    "Win32_Graphics_Direct2D",
+    "Win32_Graphics_Direct2D_Common",
+    "Win32_Graphics_DirectWrite",
     "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Gdi",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
@@ -44,6 +56,7 @@ features = [
     "Win32_System_Console",
     "Win32_System_DataExchange",
     "Win32_System_IO",
+    "Win32_System_LibraryLoader",
     "Win32_System_Ioctl",
     "Win32_System_Memory",
     "Win32_System_Ole",

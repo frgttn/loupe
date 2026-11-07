@@ -332,6 +332,10 @@ pub enum Command {
     SaveQrCode(String),
     /// Looks for QR codes and shows what they say.
     ScanQrCodes(QrSource),
+    /// Hides the launcher, lets the user drag out a part of the screen and
+    /// does `action` with it, or with `None` asks which (a bar under the
+    /// selection).
+    CaptureRegion(Option<RegionAction>),
     /// Saves a Wi-Fi network (a QR code's) to Windows and connects to it.
     ConnectWifi(WifiNetwork),
     /// Opens a contact (vCard) or an event (iCalendar) with the app that
@@ -372,6 +376,17 @@ pub enum CardKind {
     Contact,
     /// An `.ics` file.
     Event,
+}
+
+/// What [`Command::CaptureRegion`] does with the part of the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RegionAction {
+    /// Reads its text (Windows OCR) and puts it on the clipboard.
+    CopyText,
+    /// Reads the QR codes in it and shows what they say.
+    ScanQrCode,
+    /// Searches it with Google Lens in the default browser.
+    GoogleLens,
 }
 
 /// Where [`Command::ScanQrCodes`] looks.
