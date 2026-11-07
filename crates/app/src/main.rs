@@ -7,7 +7,8 @@
 //! - `LOUPE_SELFTEST=1` runs the scripted measurement in `selftest.rs` and quits.
 //! - `LOUPE_THEME=light|dark|system` overrides the saved theme mode.
 //! - `LOUPE_WINDOW_MODE=compact|expanded` overrides the saved window mode.
-//! - `LOUPE_DATA_DIR=<dir>` keeps the database there instead of `%APPDATA%\loupe`.
+//! - `LOUPE_DATA_DIR=<dir>` keeps the database there instead of the OS's data
+//!   folder (`paths::data_dir`: `%APPDATA%\loupe` on Windows).
 //!
 //! `loupe.exe --settings` opens the settings window (of the running
 //! instance, if there is one); `loupe.exe "loupe://…"` opens that link
@@ -44,7 +45,7 @@ use loupe_platform::{
     clipboard,
     hotkey::{self, Hotkey},
     instance::{self, Instance},
-    metrics, protocol, vault, win, wm,
+    metrics, paths, protocol, vault, win, wm,
 };
 use loupe_providers::{Builtins, clipboard::ClipboardHistory, files::Files, run::Run, web::Web};
 use loupe_store::{Key, Store};
@@ -1047,11 +1048,12 @@ fn hotkey_label(hotkey: Option<Hotkey>) -> SharedString {
     hotkey.map_or("no hotkey".into(), |hotkey| hotkey.to_string().into())
 }
 
-/// `%APPDATA%\loupe`, or `LOUPE_DATA_DIR`: the database and caches.
+/// `LOUPE_DATA_DIR`, or the OS's data folder for Loupe ([`paths::data_dir`]):
+/// the database and caches.
 fn data_dir() -> Option<PathBuf> {
     env::var_os("LOUPE_DATA_DIR")
         .map(PathBuf::from)
-        .or_else(|| env::var_os("APPDATA").map(|appdata| PathBuf::from(appdata).join("loupe")))
+        .or_else(paths::data_dir)
 }
 
 /// `loupe.db` in the data folder ([`data_dir`]), encrypted with the key
@@ -1060,7 +1062,7 @@ fn data_dir() -> Option<PathBuf> {
 /// usage or settings. Also returns the path for display.
 fn open_store(dir: Option<&Path>) -> (Option<Store>, SharedString) {
     let Some(dir) = dir else {
-        return (None, "unavailable (APPDATA is not set)".into());
+        return (None, "unavailable (the system names no data folder)".into());
     };
     let path = dir.join("loupe.db");
     let shown: SharedString = path.display().to_string().into();
