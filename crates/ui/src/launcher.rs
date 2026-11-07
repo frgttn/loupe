@@ -6,6 +6,7 @@ mod json_files;
 mod links;
 mod qr;
 mod quicklinks;
+mod region;
 mod snippets;
 mod views;
 
@@ -2304,6 +2305,7 @@ impl Launcher {
             Command::CopyQrCode(text) => self.copy_qr_code(text, cx),
             Command::SaveQrCode(text) => self.save_qr_code(text, cx),
             Command::ScanQrCodes(source) => self.scan_qr_codes(*source, window, cx),
+            Command::CaptureRegion(preset) => self.capture_region(*preset, window, cx),
             Command::SetSearchEngine { engine, name } => {
                 if let Some(engines) = &self.engines {
                     engines.try_send(engine.clone()).ok();
@@ -2785,6 +2787,10 @@ impl Launcher {
         if let Command::ScanQrCodes(source) = action.command {
             self.record_visit(id.to_owned(), cx);
             return self.scan_qr_codes(source, window, cx);
+        }
+        if let Command::CaptureRegion(preset) = action.command {
+            self.record_visit(id.to_owned(), cx);
+            return self.capture_region(preset, window, cx);
         }
         if action.command.needs_confirmation() {
             self.show(Instant::now(), window, cx);

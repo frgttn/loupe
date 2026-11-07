@@ -12,6 +12,7 @@ pub mod qr;
 pub mod quicklinks;
 pub mod rates;
 pub mod run;
+pub mod screen_region;
 pub mod selection;
 pub mod settings_pages;
 pub mod snippets;
@@ -75,6 +76,7 @@ mod glyph {
     pub const SWITCH: char = '\u{E8AB}';
     pub const WINDOWS: char = '\u{E7C4}';
     pub const PROCESSES: char = '\u{E9D9}';
+    pub const CROP: char = '\u{E7A8}';
 }
 
 /// The built-in providers, and the ones the app talks to again later.
@@ -125,6 +127,7 @@ pub fn all(
         Arc::new(quicklinks::Quicklinks::new(store.clone())),
         Arc::new(snippets::Snippets::new(store)),
         Arc::new(qr::Qr),
+        Arc::new(screen_region::ScreenRegion),
         run.clone(),
         web.clone(),
         Arc::new(selection::Selection::new(
