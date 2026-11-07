@@ -101,7 +101,6 @@ Results and the reasoning behind choosing GPUI: [docs/ui-framework-decision.md](
 | `crates/store` | SQLCipher (`rusqlite`, bundled; encrypted SQLite): settings, frecency, clipboard history, snippets, quicklinks, with schema migrations |
 | `crates/platform` | The platform layer the app, views and providers use: re-exports the OS crate for the build target under the same module names, so callers need no `cfg`; also what needs no OS of its own, on top of the OS crate: measurements, Google Lens, sites' icons |
 | `crates/platform-win` | Windows code: hotkey thread, single instance, app discovery and icons, running commands (launch, open URL, system commands), autostart, window placement, folder listing and change watching for the file index, NTFS MFT and USN journal reading, the index service's protocol, process memory |
-| `crates/platform-mac` | macOS code, with `platform-win`'s modules and signatures. Stubs for now; `RUSTFLAGS="--cfg loupe_mac_stub" cargo check -p loupe` on Windows builds the app against them, to check nothing is missing without a Mac |
 | `crates/service` | `loupe-service.exe`, the optional file index service: reads NTFS file tables and change journals as LocalSystem, keeps sealed snapshots, serves the launcher over a named pipe with caller and access checks |
 | `vendor/libsqlite3-sys` | `libsqlite3-sys` patched so SQLCipher uses Windows CNG instead of OpenSSL (`sqlcipher/crypto_cng.c`); no OpenSSL or Perl needed to build |
 | `docs/` | Architecture plan and the UI framework decision |

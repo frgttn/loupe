@@ -4,11 +4,10 @@
 pub mod apps;
 pub mod calc;
 pub mod clipboard;
-#[cfg(all(windows, not(loupe_mac_stub)))]
+#[cfg(windows)]
 pub mod control_panel;
 mod currency;
 pub mod files;
-#[cfg(all(windows, not(loupe_mac_stub)))]
 pub mod games;
 pub mod loupe;
 pub mod qr;
@@ -17,7 +16,7 @@ pub mod rates;
 pub mod run;
 pub mod screen_region;
 pub mod selection;
-#[cfg(all(windows, not(loupe_mac_stub)))]
+#[cfg(windows)]
 pub mod settings_pages;
 pub mod snippets;
 pub mod switcher;
@@ -57,7 +56,6 @@ mod glyph {
     pub const APPS: char = '\u{E71D}';
     pub const KEYBOARD: char = '\u{E765}';
     pub const FORM: char = '\u{E70F}';
-    #[cfg(all(windows, not(loupe_mac_stub)))]
     pub const GAME: char = '\u{E7FC}';
     pub const LINK: char = '\u{E71B}';
     pub const ADD: char = '\u{E710}';
@@ -119,11 +117,10 @@ pub fn all(
     ));
     let providers: Vec<Arc<dyn Provider>> = vec![
         Arc::new(apps::Apps),
-        #[cfg(all(windows, not(loupe_mac_stub)))]
+        #[cfg(windows)]
         Arc::new(settings_pages::SettingsPages),
-        #[cfg(all(windows, not(loupe_mac_stub)))]
+        #[cfg(windows)]
         Arc::new(control_panel::ControlPanel),
-        #[cfg(all(windows, not(loupe_mac_stub)))]
         Arc::new(games::Games),
         Arc::new(system::System),
         Arc::new(windows::WindowManagement),
