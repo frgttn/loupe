@@ -98,7 +98,8 @@ impl Exclusions {
         if self.paths.is_empty() {
             return false;
         }
-        let path = fold(&path.to_string_lossy());
+        // Rules are kept with backslashes; macOS paths come with slashes.
+        let path = fold(&path.to_string_lossy().replace('/', "\\"));
         self.paths.iter().any(|excluded| {
             path.strip_prefix(excluded.as_str())
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with('\\'))
@@ -416,7 +417,7 @@ mod tests {
             ]
         );
         let draft = index
-            .resolve(Path::new(r"c:\users\ME\documents\old\DRAFT.docx"))
+            .resolve(crate::at(r"documents\OLD\DRAFT.docx").as_path())
             .unwrap();
         assert_eq!(
             index.path(draft),
@@ -481,7 +482,10 @@ mod tests {
             std::path::MAIN_SEPARATOR
         );
         let exclusions = Exclusions::new([rule.as_str(), "node_modules"], true);
-        assert!(exclusions.excludes(Path::new(r"c:\users\me\documents\old"), "old"));
+        assert!(exclusions.excludes(crate::at(r"documents\old").as_path(), "old"));
+        // Slashes, as every macOS path has, match the same rule.
+        let slashed = format!("{}/x", crate::at(r"Documents\Old").display());
+        assert!(exclusions.excludes(Path::new(&slashed), "x"));
         assert!(exclusions.excludes(crate::at(r"Documents\Old\x").as_path(), "x"));
         assert!(!exclusions.excludes(crate::at(r"Documents\Older").as_path(), "Older"));
         assert!(exclusions.excludes(Path::new(r"D:\code\node_modules"), "node_modules"));
