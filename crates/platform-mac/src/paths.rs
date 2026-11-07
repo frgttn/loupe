@@ -1,13 +1,9 @@
-//! macOS counterpart of `loupe_platform_win::paths`, with its signatures.
-//! A stub for now: nothing here is implemented on macOS yet.
+//! Where Loupe keeps its files on macOS.
 
 use std::path::PathBuf;
 
-/// The folder for the database and caches: `%APPDATA%\loupe`. `None` if
-/// Windows doesn't say where the roaming app data is.
-///
-/// Other OS crates answer with their own convention (on macOS,
-/// `~/Library/Application Support/Loupe`).
+/// The folder for the database and caches:
+/// `~/Library/Application Support/Loupe`. `None` if there is no home folder.
 pub fn data_dir() -> Option<PathBuf> {
-    None
+    std::env::home_dir().map(|home| home.join("Library/Application Support/Loupe"))
 }
