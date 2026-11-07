@@ -101,13 +101,13 @@ pub(super) enum FieldInput {
 impl FormState {
     /// The key that submits it: Ctrl+Enter when Enter starts a new line in
     /// one of its fields.
-    pub(super) fn submit_keys(&self) -> &'static str {
+    pub(super) fn submit_keys(&self) -> String {
         let has_area = self
             .view
             .fields
             .iter()
             .any(|field| matches!(field.kind, FieldKind::TextArea { .. }));
-        if has_area { "Ctrl Enter" } else { "Enter" }
+        super::keys_label(if has_area { "secondary-enter" } else { "enter" })
     }
 }
 
@@ -1147,7 +1147,7 @@ impl Launcher {
                     .text_size(px(11.))
                     .text_color(rgba(theme::p().text_faint))
                     .child("Tab moves between fields;")
-                    .child(keycaps(form.submit_keys()))
+                    .child(keycaps(&form.submit_keys()))
                     .child(SharedString::from(form.view.submit_title.to_lowercase()))
                     .child("·")
                     .child(keycaps("Esc"))
