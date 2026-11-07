@@ -7,7 +7,7 @@ use std::{fs, sync::Arc, time::Duration, time::Instant};
 use gpui::{Context, RenderImage, Window};
 use image::Frame;
 use loupe_core::item::{CLIPBOARD, QrSource};
-use loupe_platform_win::{
+use loupe_platform::{
     clipboard::{self, Content, Image},
     dialog::{self, Request},
     links, screen,

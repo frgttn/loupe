@@ -13,7 +13,7 @@ use loupe_core::{
     item_id,
     quicklink::{self, Quicklink},
 };
-use loupe_platform_win::links::{self, Browser};
+use loupe_platform::links::{self, Browser};
 
 /// The quicklinks provider's id, whose items these are.
 const PROVIDER: &str = "quicklinks";

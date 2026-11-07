@@ -175,7 +175,7 @@ impl Launcher {
         let opens_view = super::opens_view(&command);
         if !self.visible {
             // Window commands act on the window the link was opened from.
-            self.previous_window = loupe_platform_win::clipboard::foreground_window();
+            self.previous_window = loupe_platform::clipboard::foreground_window();
             if opens_view {
                 self.show(Instant::now(), window, cx);
             }

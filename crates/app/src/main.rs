@@ -40,7 +40,7 @@ use loupe_core::{
     web::SearchEngine,
     window as window_layout,
 };
-use loupe_platform_win::{
+use loupe_platform::{
     clipboard,
     hotkey::{self, Hotkey},
     instance::{self, Instance},

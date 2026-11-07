@@ -7,7 +7,7 @@ use gpui::{
     App, Application, Bounds, Context, Window, WindowBounds, WindowOptions, div, prelude::*, px,
     rgb, size,
 };
-use loupe_platform_win::{metrics, win};
+use loupe_platform::{metrics, win};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 struct Baseline;

@@ -16,7 +16,7 @@ use loupe_core::{
     provider::Provider,
     run::{self, HISTORY_SHOWN},
 };
-use loupe_platform_win::run::{KnownCommand, known_commands};
+use loupe_platform::run::{KnownCommand, known_commands};
 use loupe_store::Store;
 
 pub const ID: &str = "run";

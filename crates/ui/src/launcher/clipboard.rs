@@ -15,7 +15,7 @@ use loupe_core::{
     item::SearchItem,
     view::{Preview, PreviewBody},
 };
-use loupe_platform_win::{
+use loupe_platform::{
     clipboard::{self, Content, Image},
     icons, vault,
 };

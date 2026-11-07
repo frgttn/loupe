@@ -31,7 +31,7 @@ use loupe_files::{
     Builder, EntryId, Exclusions, Hit, Index, Kind, Listed, Query, ScanOptions, SearchOptions,
     add_tree, is_excluded, root_check, scan_into,
 };
-use loupe_platform_win::{
+use loupe_platform::{
     fswalk,
     fswatch::{self, Change, Watcher},
     index_service::{ALL_ROOTS, Client, Entry as ServiceEntry, FromService, ROOT, ToService},

@@ -13,7 +13,7 @@ use loupe_core::{
     frecency, item_id,
     snippet::{self, EXCLUDED_APPS_SETTING, Inputs, Snippet},
 };
-use loupe_platform_win::{
+use loupe_platform::{
     clipboard::{self, Content},
     expander::{self, Ask, Keyword},
     links, win,

@@ -1,7 +1,7 @@
 //! `LOUPE_SELFTEST=1`: drives the real show/hide and text-input paths, prints
 //! a summary and quits. It injects presses into the same channel the hotkey
 //! thread feeds, so it skips only the OS's hotkey dispatch and key-event delivery.
-//! The script itself lives in `loupe_platform_win::metrics::selftest`, unchanged
+//! The script itself lives in `loupe_platform::metrics::selftest`, unchanged
 //! since the GPUI/Slint comparison so the numbers stay comparable.
 
 use std::{
@@ -14,7 +14,7 @@ use loupe_core::{
     item::Command,
     view::{Field, FieldKind, FieldValue, FormView, View},
 };
-use loupe_platform_win::metrics::{self, selftest::*};
+use loupe_platform::metrics::{self, selftest::*};
 use loupe_ui::launcher::{Launcher, WindowMode};
 
 pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
@@ -1018,7 +1018,7 @@ async fn qr_round_trip(window: WindowHandle<Launcher>, cx: &mut AsyncApp) -> Str
     let read = cx
         .background_executor()
         .spawn(async {
-            loupe_platform_win::screen::capture()
+            loupe_platform::screen::capture()
                 .map(|screen| loupe_qr::read(&screen).iter().any(|code| code == TEXT))
         })
         .await;

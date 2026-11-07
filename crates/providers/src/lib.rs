@@ -132,7 +132,7 @@ pub fn all(
         web.clone(),
         Arc::new(selection::Selection::new(
             web.clone(),
-            loupe_platform_win::win::user_language(),
+            loupe_platform::win::user_language(),
         )),
         Arc::new(loupe::Loupe),
     ];

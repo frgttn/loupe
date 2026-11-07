@@ -6,7 +6,7 @@ use loupe_core::{
     item_id,
     provider::Provider,
 };
-use loupe_platform_win::drives::{self, DriveKind};
+use loupe_platform::drives::{self, DriveKind};
 
 use crate::glyph;
 

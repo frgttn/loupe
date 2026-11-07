@@ -6,7 +6,7 @@ use loupe_core::{
     provider::Provider,
     view::{DetailView, ListView, View},
 };
-use loupe_platform_win::apps;
+use loupe_platform::apps;
 
 use crate::glyph;
 

@@ -6,7 +6,7 @@ use loupe_core::{
     item_id,
     provider::Provider,
 };
-use loupe_platform_win::apps;
+use loupe_platform::apps;
 
 pub const ID: &str = "control-panel";
 

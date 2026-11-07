@@ -13,7 +13,7 @@ use loupe_core::{
     item_id,
     provider::Provider,
 };
-use loupe_platform_win::registry;
+use loupe_platform::registry;
 
 use crate::glyph;
 

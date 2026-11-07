@@ -13,7 +13,7 @@ use loupe_core::{
     view::{Field, FieldKind, FormView, ListView, View},
     web::SearchEngine,
 };
-use loupe_platform_win::links::{self, Browser};
+use loupe_platform::links::{self, Browser};
 use loupe_store::Store;
 
 use crate::glyph;
