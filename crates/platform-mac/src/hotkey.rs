@@ -1,7 +1,5 @@
 //! macOS counterpart of `loupe_platform_win::hotkey`, with its signatures.
-//! Hotkeys are named, parsed and shown as on Windows (`vk` stays a Windows
-//! virtual-key code, so settings carry over); registering them is a stub
-//! for now.
+//! A stub for now: nothing here is implemented on macOS yet.
 
 use std::{fmt, time::Instant};
 
@@ -39,36 +37,12 @@ impl Hotkey {
     /// `"F5"`, `"PageUp"`, `"/"`…, case-insensitive). `None` for keys that
     /// can't be a hotkey and for combinations without a modifier, which
     /// would swallow that key everywhere.
-    pub fn new(ctrl: bool, alt: bool, shift: bool, win: bool, key: &str) -> Option<Self> {
-        let vk = vk_from_name(key)?;
-        (ctrl || alt || shift || win).then_some(Self {
-            ctrl,
-            alt,
-            shift,
-            win,
-            vk,
-        })
+    pub fn new(_ctrl: bool, _alt: bool, _shift: bool, _win: bool, _key: &str) -> Option<Self> {
+        None
     }
     /// Parses the [`Display`](fmt::Display) form, e.g. `"Ctrl+Shift+Space"`.
-    pub fn parse(text: &str) -> Option<Self> {
-        let mut parts: Vec<&str> = text.split('+').map(str::trim).collect();
-        // "Ctrl++" names the plus key: splitting leaves two empty parts at the end.
-        if text.trim_end().ends_with("++") {
-            parts.truncate(parts.len() - 2);
-            parts.push("+");
-        }
-        let key = parts.pop()?;
-        let (mut ctrl, mut alt, mut shift, mut win) = (false, false, false, false);
-        for part in parts {
-            match part.to_ascii_lowercase().as_str() {
-                "ctrl" | "control" => ctrl = true,
-                "alt" => alt = true,
-                "shift" => shift = true,
-                "win" | "windows" | "super" => win = true,
-                _ => return None,
-            }
-        }
-        Self::new(ctrl, alt, shift, win, key)
+    pub fn parse(_text: &str) -> Option<Self> {
+        None
     }
 }
 
@@ -84,69 +58,10 @@ impl fmt::Display for Hotkey {
                 write!(f, "{name}+")?;
             }
         }
-        f.write_str(&key_name(self.vk))
-    }
-}
-
-/// Key names and their Windows virtual-key codes, as `loupe_platform_win`
-/// has them.
-const NAMED_KEYS: &[(&str, u16)] = &[
-    ("Space", 0x20),
-    ("Enter", 0x0D),
-    ("Tab", 0x09),
-    ("Backspace", 0x08),
-    ("Delete", 0x2E),
-    ("Insert", 0x2D),
-    ("Home", 0x24),
-    ("End", 0x23),
-    ("PageUp", 0x21),
-    ("PageDown", 0x22),
-    ("Left", 0x25),
-    ("Up", 0x26),
-    ("Right", 0x27),
-    ("Down", 0x28),
-    (";", 0xBA),
-    ("=", 0xBB),
-    (",", 0xBC),
-    ("-", 0xBD),
-    (".", 0xBE),
-    ("/", 0xBF),
-    ("`", 0xC0),
-    ("[", 0xDB),
-    ("\\", 0xDC),
-    ("]", 0xDD),
-    ("'", 0xDE),
-    ("+", 0xBB),
-];
-
-fn vk_from_name(name: &str) -> Option<u16> {
-    let name = name.trim();
-    if let [ch] = name.as_bytes()
-        && ch.is_ascii_alphanumeric()
-    {
-        return Some(ch.to_ascii_uppercase() as u16);
-    }
-    if let Some(n) = name
-        .strip_prefix(['F', 'f'])
-        .and_then(|n| n.parse::<u16>().ok())
-        && (1..=24).contains(&n)
-    {
-        return Some(0x70 + n - 1);
-    }
-    NAMED_KEYS
-        .iter()
-        .find(|(known, _)| known.eq_ignore_ascii_case(name))
-        .map(|&(_, vk)| vk)
-}
-
-fn key_name(vk: u16) -> String {
-    match vk {
-        0x30..=0x39 | 0x41..=0x5A => char::from(vk as u8).to_string(),
-        0x70..=0x87 => format!("F{}", vk - 0x70 + 1),
-        _ => NAMED_KEYS
-            .iter()
-            .find(|&&(_, known)| known == vk)
-            .map_or_else(|| format!("0x{vk:02X}"), |(name, _)| (*name).to_owned()),
+        match self.vk {
+            0x20 => f.write_str("Space"),
+            vk => write!(f, "{}", char::from(vk as u8)),
+        }
     }
 }
 
@@ -229,6 +144,5 @@ pub fn spawn(
     _presses: async_channel::Sender<Instant>,
     _item_presses: async_channel::Sender<String>,
 ) -> Result<(Service, Result<Hotkey, String>), String> {
-    // The service "runs", so the app starts; no hotkey gets registered.
-    Ok((Service { _private: () }, Err(UNSUPPORTED.into())))
+    Err(UNSUPPORTED.into())
 }
