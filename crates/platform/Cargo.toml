@@ -16,11 +16,3 @@ loupe-core.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 loupe-platform-win.workspace = true
-
-# Pure Rust while it is stubs, so Windows builds it too for `--cfg loupe_mac_stub`.
-[dependencies.loupe-platform-mac]
-workspace = true
-
-[lints.rust]
-# `--cfg loupe_mac_stub` builds Windows against the macOS crate (see loupe-platform).
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loupe_mac_stub)"] }

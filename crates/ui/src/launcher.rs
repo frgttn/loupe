@@ -439,21 +439,7 @@ impl HomeSection {
 
 /// How dense the launcher's tint over its blurred background is: what
 /// shows through, blurred, is a hint of what's behind, not something to read.
-/// GPUI's blur barely blurs on Windows, so the tint has to hide nearly
-/// everything there; macOS blurs for real, so more of it may show.
-const TINT_DENSITY: f32 = if cfg!(target_os = "macos") {
-    0.82
-} else {
-    0.93
-};
-
-/// How bright (for a light theme: how dark) the window may get over a white
-/// (black) background, from 0 for the theme's own extreme to 1.
-const MAX_BRIGHTNESS: f32 = if cfg!(target_os = "macos") {
-    0.30
-} else {
-    0.24
-};
+const TINT_DENSITY: f32 = 0.93;
 
 /// The tint drawn over the blur: [`TINT_DENSITY`] of the current theme's
 /// background, or denser where the theme needs it to stay dark over a white
@@ -468,6 +454,7 @@ fn tint() -> u32 {
 
 /// [`tint`] for a theme with this background and appearance.
 fn tint_for(background: u32, appearance: theme::Appearance) -> u32 {
+    const MAX_BRIGHTNESS: f32 = 0.24;
     let light = appearance == theme::Appearance::Light;
     // In terms of "distance from the theme's own extreme": for a light
     // theme, brightness is flipped, and the worst background is black.
@@ -4754,14 +4741,14 @@ mod tests {
             let density = alpha(tint_for(theme.palette.background, theme.appearance));
             assert!(density >= TINT_DENSITY - 0.005, "{}: {density}", theme.id);
             // The window over white (black for a light theme) stays within
-            // `MAX_BRIGHTNESS` of the way from the theme's own extreme.
+            // a quarter of the way from the theme's own extreme.
             let own = (theme.palette.background >> 24) as f32 / 255.;
             let own = match theme.appearance {
                 theme::Appearance::Light => 1. - own,
                 theme::Appearance::Dark => own,
             };
             let window = density * own + (1. - density);
-            assert!(window <= MAX_BRIGHTNESS + 0.005, "{}: {window}", theme.id);
+            assert!(window <= 0.245, "{}: {window}", theme.id);
         }
     }
 

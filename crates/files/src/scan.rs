@@ -98,8 +98,7 @@ impl Exclusions {
         if self.paths.is_empty() {
             return false;
         }
-        // Rules are kept with backslashes; macOS paths come with slashes.
-        let path = fold(&path.to_string_lossy().replace('/', "\\"));
+        let path = fold(&path.to_string_lossy());
         self.paths.iter().any(|excluded| {
             path.strip_prefix(excluded.as_str())
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with('\\'))
@@ -352,7 +351,7 @@ mod tests {
     fn disk() -> HashMap<PathBuf, Vec<Listed>> {
         let mut disk = HashMap::new();
         disk.insert(
-            crate::at(r""),
+            PathBuf::from(r"C:\Users\me"),
             vec![
                 dir("Documents"),
                 dir("AppData"),
@@ -368,18 +367,33 @@ mod tests {
             ],
         );
         disk.insert(
-            crate::at(r"Documents"),
+            PathBuf::from(r"C:\Users\me\Documents"),
             vec![file("report.pdf"), dir("Old")],
         );
-        disk.insert(crate::at(r"Documents\Old"), vec![file("draft.docx")]);
-        disk.insert(crate::at(r"AppData"), vec![file("cache.bin")]);
         disk.insert(
-            crate::at(r"project"),
+            PathBuf::from(r"C:\Users\me\Documents\Old"),
+            vec![file("draft.docx")],
+        );
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\AppData"),
+            vec![file("cache.bin")],
+        );
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\project"),
             vec![file("main.rs"), dir("target"), dir(".git")],
         );
-        disk.insert(crate::at(r"project\target"), vec![file("main.exe")]);
-        disk.insert(crate::at(r"project\.git"), vec![file("HEAD")]);
-        disk.insert(crate::at(r"My Music"), vec![file("song.mp3")]);
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\project\target"),
+            vec![file("main.exe")],
+        );
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\project\.git"),
+            vec![file("HEAD")],
+        );
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\My Music"),
+            vec![file("song.mp3")],
+        );
         disk
     }
 
@@ -398,7 +412,7 @@ mod tests {
         let list = |path: &Path| Ok(disk.get(path).cloned().unwrap_or_default());
         let exclusions = Exclusions::new(RULES, true);
         let index = scan(
-            &[crate::at(r"")],
+            &[PathBuf::from(r"C:\Users\me")],
             &exclusions,
             &list,
             &ScanOptions::default(),
@@ -417,33 +431,36 @@ mod tests {
             ]
         );
         let draft = index
-            .resolve(crate::at(r"documents\OLD\DRAFT.docx").as_path())
+            .resolve(Path::new(r"c:\users\ME\documents\old\DRAFT.docx"))
             .unwrap();
         assert_eq!(
             index.path(draft),
-            crate::at(r"Documents\Old\draft.docx").as_path()
+            Path::new(r"C:\Users\me\Documents\Old\draft.docx")
         );
-        assert_eq!(index.resolve(crate::at(r"AppData").as_path()), None);
+        assert_eq!(index.resolve(Path::new(r"C:\Users\me\AppData")), None);
         assert_eq!(index.resolve(Path::new(r"D:\elsewhere")), None);
     }
 
     #[test]
     fn a_root_inside_another_is_walked_once() {
         let mut disk = disk();
-        disk.insert(crate::at(r"AppData"), vec![dir("Local")]);
-        disk.insert(crate::at(r"AppData\Local"), vec![file("notes.txt")]);
+        disk.insert(PathBuf::from(r"C:\Users\me\AppData"), vec![dir("Local")]);
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\AppData\Local"),
+            vec![file("notes.txt")],
+        );
         let list = |path: &Path| Ok(disk.get(path).cloned().unwrap_or_default());
         let exclusions = Exclusions::new(RULES, true);
         let roots = [
-            crate::at(r""),
-            crate::at(r"AppData\Local"),
-            crate::at(r"Documents"),
+            PathBuf::from(r"C:\Users\me"),
+            PathBuf::from(r"C:\Users\me\AppData\Local"),
+            PathBuf::from(r"C:\Users\me\Documents"),
         ];
         let index = scan(&roots, &exclusions, &list, &ScanOptions::default()).unwrap();
         // The excluded AppData's Local is a root of its own, and Documents
         // isn't listed twice.
         let notes = index
-            .resolve(crate::at(r"AppData\Local\notes.txt").as_path())
+            .resolve(Path::new(r"C:\Users\me\AppData\Local\notes.txt"))
             .unwrap();
         assert_eq!(index.parent(notes), Some(index.roots()[1]));
         let reports = (0..index.len() as EntryId)
@@ -451,7 +468,7 @@ mod tests {
             .count();
         assert_eq!(reports, 1);
         let report = index
-            .resolve(crate::at(r"Documents\report.pdf").as_path())
+            .resolve(Path::new(r"C:\Users\me\Documents\report.pdf"))
             .unwrap();
         assert_eq!(index.parent(report), Some(index.roots()[2]));
     }
@@ -462,7 +479,7 @@ mod tests {
         let list = |path: &Path| Ok(disk.get(path).cloned().unwrap_or_default());
         let exclusions = Exclusions::new(["AppData", "target"], false);
         let index = scan(
-            &[crate::at(r"")],
+            &[PathBuf::from(r"C:\Users\me")],
             &exclusions,
             &list,
             &ScanOptions::default(),
@@ -475,19 +492,10 @@ mod tests {
 
     #[test]
     fn path_rules_exclude_a_subtree() {
-        // A folder path with a trailing separator, as a user might type it.
-        let rule = format!(
-            "{}{}",
-            crate::at(r"Documents\Old").display(),
-            std::path::MAIN_SEPARATOR
-        );
-        let exclusions = Exclusions::new([rule.as_str(), "node_modules"], true);
-        assert!(exclusions.excludes(crate::at(r"documents\old").as_path(), "old"));
-        // Slashes, as every macOS path has, match the same rule.
-        let slashed = format!("{}/x", crate::at(r"Documents\Old").display());
-        assert!(exclusions.excludes(Path::new(&slashed), "x"));
-        assert!(exclusions.excludes(crate::at(r"Documents\Old\x").as_path(), "x"));
-        assert!(!exclusions.excludes(crate::at(r"Documents\Older").as_path(), "Older"));
+        let exclusions = Exclusions::new([r"C:\Users\me\Documents\Old\", "node_modules"], true);
+        assert!(exclusions.excludes(Path::new(r"c:\users\me\documents\old"), "old"));
+        assert!(exclusions.excludes(Path::new(r"C:\Users\me\Documents\Old\x"), "x"));
+        assert!(!exclusions.excludes(Path::new(r"C:\Users\me\Documents\Older"), "Older"));
         assert!(exclusions.excludes(Path::new(r"D:\code\node_modules"), "node_modules"));
     }
 
@@ -500,7 +508,15 @@ mod tests {
             cancel: Some(&cancel),
             ..ScanOptions::default()
         };
-        assert!(scan(&[crate::at(r"")], &Exclusions::default(), &list, &options).is_none());
+        assert!(
+            scan(
+                &[PathBuf::from(r"C:\Users\me")],
+                &Exclusions::default(),
+                &list,
+                &options
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -509,7 +525,7 @@ mod tests {
         let list = |path: &Path| Ok(disk.get(path).cloned().unwrap_or_default());
         let exclusions = Exclusions::new(RULES, true);
         let mut index = scan(
-            &[crate::at(r"")],
+            &[PathBuf::from(r"C:\Users\me")],
             &exclusions,
             &list,
             &ScanOptions::default(),
@@ -518,17 +534,20 @@ mod tests {
 
         // A folder moved in from outside the scope arrives as one name.
         disk.insert(
-            crate::at(r"Photos"),
+            PathBuf::from(r"C:\Users\me\Photos"),
             vec![file("cat.jpg"), dir("2024"), dir("node_modules")],
         );
-        disk.insert(crate::at(r"Photos\2024"), vec![file("dog.jpg")]);
+        disk.insert(
+            PathBuf::from(r"C:\Users\me\Photos\2024"),
+            vec![file("dog.jpg")],
+        );
         let list = |path: &Path| Ok(disk.get(path).cloned().unwrap_or_default());
         let root = index.roots()[0];
         let photos = index.insert(root, dir("Photos").meta());
         let added = add_tree(
             &mut index,
             photos,
-            crate::at(r"Photos").as_path(),
+            Path::new(r"C:\Users\me\Photos"),
             &exclusions,
             &list,
         );
@@ -537,7 +556,7 @@ mod tests {
         let hits = index.search(&Query::parse("dog"), &options).unwrap();
         assert_eq!(
             index.path(hits[0].id),
-            crate::at(r"Photos\2024\dog.jpg").as_path()
+            Path::new(r"C:\Users\me\Photos\2024\dog.jpg")
         );
     }
 }

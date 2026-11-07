@@ -661,11 +661,7 @@ mod tests {
             name: "Docs".into(),
             link: "https://docs.rs/{query}".into(),
             keyword: Some("d".into()),
-            open_with: Some(if cfg!(windows) {
-                r"C:\Gone\browser.exe".into()
-            } else {
-                "/Applications/Gone/browser.app".into()
-            }),
+            open_with: Some(r"C:\Gone\browser.exe".into()),
         };
         let View::Form(form) = provider.edit_form("Edit Quicklink", &link) else {
             panic!("expected a form");
@@ -674,12 +670,7 @@ mod tests {
             panic!("expected a dropdown");
         };
         // The browser isn't installed any more, but stays chosen.
-        let shown = if cfg!(windows) {
-            "browser.exe"
-        } else {
-            "browser.app"
-        };
-        assert_eq!(options[*default].0, shown);
+        assert_eq!(options[*default].0, "browser.exe");
         let values = [
             FieldValue::Text("Docs".into()),
             FieldValue::Text("https://docs.rs/{query}".into()),

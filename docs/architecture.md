@@ -38,7 +38,6 @@ Later, and optional: a tiny elevated helper for interacting with admin windows. 
   search         # aggregator: fan-out to providers, cancel on new keystroke, merge + rank (nucleo)
   platform       # facade: re-exports the OS crate for the target (app/ui/providers never name one); metrics, Lens, favicons
   platform-win   # windows-rs: hotkey/hook, focus, window mgmt, clipboard, UIA, app discovery, icons
-  platform-mac   # the same modules for macOS (stubs for now; `--cfg loupe_mac_stub` checks them on Windows)
   store          # rusqlite + SQLCipher: settings, frecency, clipboard history, snippets, quicklinks
   providers/
     apps         # shell:AppsFolder (Win32 + MSIX), icon extraction, launch
