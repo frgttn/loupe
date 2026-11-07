@@ -6,7 +6,10 @@ using Loupe (called Spotlight up to 1.1.1). Versions follow [Semantic Versioning
 
 ## [Unreleased]
 
-- **Spotlight is now Loupe.** The new name avoids a clash with Apple's Spotlight ahead of a macOS version. Loupe installs next to Spotlight as a separate app and starts with fresh settings and history: `Loupe-win-Setup.exe` installs it into `%LocalAppData%\Loupe`, and its data lives in `%APPDATA%\loupe`. Spotlight won't update to Loupe by itself; uninstall it from Windows Settings › Apps. Links now start with `loupe://`; `spotlight://` links no longer open the app.
+## [1.2.0] - 2026-11-07
+
+- **Spotlight is now Loupe.** The new name avoids a clash with Apple's Spotlight. Loupe installs next to Spotlight as a separate app and starts with fresh settings and history: `Loupe-win-Setup.exe` installs it into `%LocalAppData%\Loupe`, and its data lives in `%APPDATA%\loupe`. Spotlight won't update to Loupe by itself; uninstall it from Windows Settings › Apps. Links now start with `loupe://`; `spotlight://` links no longer open the app.
+- **Capture Screen Region:** the screen freezes and you drag out a rectangle, then pick **Copy Text** (T or Enter) to copy the text in it, **Scan QR** (Q) to open a QR code in it, or **Google Lens** (L) to look it up in your browser. Esc or a right click cancels. *Copy Text from Screen Region*, *Scan QR Code from Screen Region* and *Search Screen Region with Google Lens* do one of these straight away, and each command can have its own hotkey. Text is read in every language set up for Windows text recognition.
 
 ## [1.1.1] - 2026-11-06
 
