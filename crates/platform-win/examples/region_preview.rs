@@ -2,9 +2,17 @@
 //! design without covering the real screen: `cargo run -p
 //! loupe-platform-win --example region_preview -- out.png [hover]`.
 
+#[cfg(windows)]
 use image::{Rgba, RgbaImage};
+#[cfg(windows)]
 use windows::Win32::Foundation::RECT;
 
+#[cfg(not(windows))]
+fn main() {
+    eprintln!("The region picker is Windows-only");
+}
+
+#[cfg(windows)]
 fn main() {
     let mut args = std::env::args().skip(1);
     let out = args.next().expect("where to save the PNG");

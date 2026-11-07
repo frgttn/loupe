@@ -9,13 +9,20 @@
 //!   terminal; `scan <drive>`: reads a drive's table and follows its journal
 //!   for a while, printing what it sees.
 
+#[cfg(windows)]
 mod log;
+#[cfg(windows)]
 mod scm;
+#[cfg(windows)]
 mod server;
+#[cfg(windows)]
 mod store;
+#[cfg(windows)]
 mod tree;
+#[cfg(windows)]
 mod volume;
 
+#[cfg(windows)]
 use std::{
     env,
     path::{Path, PathBuf},
@@ -24,10 +31,19 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(windows)]
 use loupe_platform_win::ntfs;
 
+#[cfg(windows)]
 use crate::{tree::Tree, volume::Source};
 
+#[cfg(not(windows))]
+fn main() -> std::process::ExitCode {
+    eprintln!("loupe-service reads NTFS file tables, so it only runs on Windows");
+    std::process::ExitCode::FAILURE
+}
+
+#[cfg(windows)]
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
@@ -51,6 +67,7 @@ fn main() -> ExitCode {
 }
 
 /// Reads drive `letter`'s table, then prints its changes for 30 seconds.
+#[cfg(windows)]
 fn scan(letter: char) -> Result<(), String> {
     let volume =
         ntfs::Volume::open(letter).map_err(|err| format!("{letter}: {err} (run it elevated)"))?;

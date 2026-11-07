@@ -3,9 +3,10 @@
 //!
 //! Nothing in here knows about a UI framework: window handles are passed as raw
 //! `isize` HWND values and events are delivered over `async_channel`.
-
-#[cfg(not(windows))]
-compile_error!("Loupe is Windows-only");
+//!
+//! The whole crate is Windows-only: on other targets it is empty, so the
+//! workspace still checks there (`loupe-platform` only uses it on Windows).
+#![cfg(windows)]
 
 pub mod apps;
 pub mod autostart;
