@@ -24,6 +24,7 @@ pub mod links;
 pub mod net;
 pub mod ntfs;
 pub mod ocr;
+pub mod paths;
 pub mod process;
 pub mod protocol;
 pub mod region;

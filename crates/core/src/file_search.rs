@@ -200,9 +200,10 @@ impl Status {
     }
 }
 
-/// The user profile folder, `C:\Users\<name>`.
+/// The user's home folder: `C:\Users\<name>` on Windows, `/Users/<name>`
+/// on macOS.
 pub fn profile() -> Option<PathBuf> {
-    env::var_os("USERPROFILE").map(PathBuf::from)
+    env::home_dir()
 }
 
 /// `12,345`.
