@@ -6,6 +6,13 @@ using Loupe (called Spotlight up to 1.1.1). Versions follow [Semantic Versioning
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-11
+
+- **Update notifications:** Loupe checks for a new version right after it starts. Once the update has downloaded, a Windows notification says so; click it to open Settings › About and pick *Restart to Update*.
+- **Links to Settings:** `loupe://settings/about` (or another page, like `general` or `shortcuts`) opens Settings on that page.
+- **Monitors:** unplugging a monitor no longer pops the hidden launcher up on the remaining one.
+- **Typing:** Backspace deletes with Shift or Alt held too, and Ctrl+Shift+Backspace deletes a word.
+
 ## [1.2.0] - 2026-11-07
 
 - **Spotlight is now Loupe.** The new name avoids a clash with Apple's Spotlight. Loupe installs next to Spotlight as a separate app and starts with fresh settings and history: `Loupe-win-Setup.exe` installs it into `%LocalAppData%\Loupe`, and its data lives in `%APPDATA%\loupe`. Spotlight won't update to Loupe by itself; uninstall it from Windows Settings › Apps. Links now start with `loupe://`; `spotlight://` links no longer open the app.
