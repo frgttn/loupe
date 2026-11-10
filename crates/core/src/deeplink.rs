@@ -1,6 +1,8 @@
 //! `loupe://` links, shaped like Raycast's `raycast://` ones:
 //!
 //! - `loupe://` opens the launcher.
+//! - `loupe://settings/{page}` opens Settings on that page (`about`, …);
+//!   `loupe://settings` on the page it was left on.
 //! - `loupe://extensions/loupe/{provider}/{command}` runs a command.
 //!   `{command}` is the item id's instance, percent-encoded (`system/lock`,
 //!   `apps/Microsoft.WindowsCalculator_8wekyb3d8bbwe%21App`), or the item's
@@ -32,6 +34,8 @@ pub const ARGUMENTS_VIEW: &str = "arguments:";
 pub enum Deeplink {
     /// `loupe://`: just open the launcher.
     Open,
+    /// `loupe://settings[/{page}]`: open Settings, on that page if given.
+    Settings(Option<String>),
     Command(CommandLink),
 }
 
@@ -83,6 +87,7 @@ pub fn parse(link: &str) -> Result<Deeplink, String> {
         .collect();
     match segments.first().map(String::as_str) {
         None => Ok(Deeplink::Open),
+        Some("settings") => Ok(Deeplink::Settings(segments.get(1).cloned())),
         Some("extensions") => {
             let [_, owner, provider, command] = segments.as_slice() else {
                 return Err("expected extensions/loupe/{provider}/{command}".into());
@@ -111,6 +116,11 @@ pub fn parse(link: &str) -> Result<Deeplink, String> {
         }
         Some(other) => Err(format!("unknown link kind {other:?}")),
     }
+}
+
+/// The link that opens Settings on `page`.
+pub fn for_settings(page: &str) -> String {
+    format!("{SCHEME}://settings/{}", encode(page))
 }
 
 /// The link that runs item `id`, with no arguments.
@@ -340,6 +350,11 @@ mod tests {
         assert!(parse("raycast://").is_err());
         assert!(parse("https://example.com").is_err());
         assert!(parse("loupe://confetti").is_err());
+        assert_eq!(parse("loupe://settings"), Ok(Deeplink::Settings(None)));
+        assert_eq!(
+            parse(&for_settings("about")),
+            Ok(Deeplink::Settings(Some("about".into())))
+        );
     }
 
     #[test]

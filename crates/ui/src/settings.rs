@@ -435,6 +435,22 @@ impl Settings {
         cx.notify();
     }
 
+    /// Goes to the page with this key (`about`, an extension's id…), as a
+    /// `loupe://settings/{page}` link asks. An unknown key changes nothing.
+    pub fn show_page(&mut self, key: &str, cx: &mut Context<Self>) {
+        let page = PAGES
+            .into_iter()
+            .chain(self.sources.iter().map(|source| Page::Extension(source.id)))
+            .find(|page| page.key().eq_ignore_ascii_case(key));
+        match page {
+            Some(page) => {
+                self.go(page, cx);
+                cx.notify();
+            }
+            None => eprintln!("[settings] no page {key:?}"),
+        }
+    }
+
     fn refresh_from_launcher(&mut self, cx: &mut Context<Self>) {
         let Some(state) = (self.launcher)(cx) else {
             return;

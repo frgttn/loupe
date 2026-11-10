@@ -517,6 +517,11 @@ fn main() {
                     }
                     instance::SETTINGS => open_settings(state, cx),
                     link if is_link(link) => {
+                        // Settings links (a notification's) open Settings;
+                        // the rest are the launcher's.
+                        if let Ok(deeplink::Deeplink::Settings(page)) = deeplink::parse(link) {
+                            return open_settings_page(state, page.as_deref(), cx);
+                        }
                         state
                             .launcher
                             .update(cx, |launcher, window, cx| {
@@ -607,12 +612,26 @@ fn main() {
 
 /// Focuses the settings window, opening it if it isn't open.
 fn open_settings(state: &Rc<AppState>, cx: &mut App) {
+    open_settings_page(state, None, cx);
+}
+
+/// Focuses the settings window, opening it if it isn't open, and goes to
+/// `page` (a page key such as `about`) if given.
+fn open_settings_page(state: &Rc<AppState>, page: Option<&str>, cx: &mut App) {
+    let show_page = |handle: WindowHandle<Settings>, cx: &mut App| {
+        if let Some(page) = page {
+            handle
+                .update(cx, |settings, _, cx| settings.show_page(page, cx))
+                .ok();
+        }
+    };
     let existing = *state.settings.borrow();
     if let Some(handle) = existing
         && handle
             .update(cx, |_, window, _| window.activate_window())
             .is_ok()
     {
+        show_page(handle, cx);
         return;
     }
 
@@ -673,7 +692,10 @@ fn open_settings(state: &Rc<AppState>, cx: &mut App) {
         view
     });
     match opened {
-        Ok(handle) => *state.settings.borrow_mut() = Some(handle),
+        Ok(handle) => {
+            *state.settings.borrow_mut() = Some(handle);
+            show_page(handle, cx);
+        }
         Err(err) => eprintln!("[loupe] could not open settings: {err}"),
     }
 }

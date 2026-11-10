@@ -34,6 +34,7 @@ pub mod run;
 pub mod screen;
 pub mod selection;
 pub mod system;
+pub mod toast;
 pub mod vault;
 pub mod wifi;
 pub mod win;

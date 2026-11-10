@@ -49,7 +49,7 @@ pub fn unregister(scheme: &str) -> Result<(), String> {
         .map_err(|err| format!("could not remove {key}: {err}"))
 }
 
-fn set(key: &str, name: &str, value: &str) -> Result<(), String> {
+pub(crate) fn set(key: &str, name: &str, value: &str) -> Result<(), String> {
     let value = HSTRING::from(value);
     let bytes = (value.len() + 1) * size_of::<u16>();
     let name = HSTRING::from(name);
