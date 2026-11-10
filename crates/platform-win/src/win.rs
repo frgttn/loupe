@@ -134,6 +134,40 @@ pub fn round_corners(raw: isize) {
     }
 }
 
+/// Keeps the window hidden when a monitor is unplugged or switched off.
+///
+/// GPUI answers WM_DISPLAYCHANGE for a window whose monitor went away with
+/// `ShowWindow(SW_SHOWNORMAL)`, hidden or not, so the launcher popped up on
+/// the remaining monitor at the wrong size and place. While the window is
+/// hidden the message is dropped before GPUI sees it; GPUI picks up the new
+/// monitor from WM_MOVE when the launcher is next shown.
+pub fn keep_hidden_on_display_change(raw: isize) {
+    use windows::Win32::UI::Shell::SetWindowSubclass;
+    const SUBCLASS_ID: usize = 0x4c6f_7570; // "Loup"
+    unsafe {
+        let _ = SetWindowSubclass(hwnd(raw), Some(display_change_proc), SUBCLASS_ID, 0);
+    }
+}
+
+unsafe extern "system" fn display_change_proc(
+    window: HWND,
+    msg: u32,
+    wparam: windows::Win32::Foundation::WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::{
+        Foundation::LRESULT, UI::Shell::DefSubclassProc, UI::WindowsAndMessaging::WM_DISPLAYCHANGE,
+    };
+    unsafe {
+        if msg == WM_DISPLAYCHANGE && !IsWindowVisible(window).as_bool() {
+            return LRESULT(0);
+        }
+        DefSubclassProc(window, msg, wparam, lparam)
+    }
+}
+
 /// Clips the window to the top `logical_height` of its client area (all of
 /// it with `None`). Clicks below go to the windows beneath, and Windows
 /// stops drawing its own rounded corners and border: a transparent window
