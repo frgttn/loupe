@@ -7,8 +7,8 @@ use windows::{
     Win32::{
         Foundation::ERROR_SUCCESS,
         System::Registry::{
-            HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_SZ, RegCloseKey,
-            RegEnumKeyExW, RegGetValueW, RegOpenKeyExW,
+            HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
+            RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW,
         },
     },
     core::{HSTRING, PWSTR},
@@ -63,6 +63,26 @@ pub fn string(path: &str, name: &str) -> Option<String> {
             .unwrap_or(buffer.len());
         Some(String::from_utf16_lossy(&buffer[..len]))
     }
+}
+
+/// The DWORD value `name` of key `path`, if both exist.
+pub fn dword(path: &str, name: &str) -> Option<u32> {
+    let (hive, subkey) = split(path)?;
+    let (subkey, name) = (HSTRING::from(subkey), HSTRING::from(name));
+    let mut value = 0u32;
+    let mut size = size_of::<u32>() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            hive,
+            &subkey,
+            &name,
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut value as *mut u32 as *mut c_void),
+            Some(&mut size),
+        )
+    };
+    (status == ERROR_SUCCESS).then_some(value)
 }
 
 /// The names of the subkeys of `path`; empty if it doesn't exist.

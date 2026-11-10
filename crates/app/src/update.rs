@@ -6,10 +6,12 @@
 //! updates, so start at login, the `loupe://` links and the index
 //! service's allowed client keep pointing at it.
 //!
-//! Updates come from the repository's GitHub Releases: a check a minute
-//! after start and then every few hours downloads a newer version in the
-//! background. It replaces the running one when the user picks "Restart to
-//! Update" (tray or Settings › About), or at the next start otherwise.
+//! Updates come from the repository's GitHub Releases: a check right after
+//! start and then every few hours downloads a newer version in the
+//! background and says so in a Windows notification, which opens
+//! Settings › About. It replaces the running one when the user picks
+//! "Restart to Update" (there or in the tray), or at the next start
+//! otherwise.
 
 use std::{
     sync::{Arc, Mutex},
@@ -18,11 +20,11 @@ use std::{
 };
 
 use loupe_core::{deeplink, update::Status};
-use loupe_platform::{autostart, index_service, protocol};
+use loupe_platform::{autostart, index_service, protocol, toast};
 use velopack::{UpdateCheck, UpdateInfo, UpdateManager, VelopackApp, sources::GithubSource};
 
-/// The first check, after start has settled.
-const FIRST_CHECK: Duration = Duration::from_secs(60);
+/// The first check, once start has settled (the window, the tray).
+const FIRST_CHECK: Duration = Duration::from_secs(5);
 const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 
 /// Handles the installer's calls (`--veloapp-install` and the like), which
@@ -47,6 +49,9 @@ pub fn run_installer_hooks() {
                 eprintln!("[update] could not turn off start at login: {err}");
             }
             if let Err(err) = protocol::unregister(deeplink::SCHEME) {
+                eprintln!("[update] {err}");
+            }
+            if let Err(err) = toast::unregister() {
                 eprintln!("[update] {err}");
             }
             // It runs as LocalSystem from %ProgramFiles%, so removing it
@@ -171,11 +176,26 @@ impl Updater {
         }
         eprintln!("[update] v{version} downloaded; it applies on restart");
         *self.ready.lock().unwrap() = Some(update);
-        self.set(Status::Ready(version));
+        self.set(Status::Ready(version.clone()));
+        notify_ready(&version);
     }
 
     fn set(&self, status: Status) {
         *self.status.lock().unwrap() = status;
         let _ = self.changed.send_blocking(());
+    }
+}
+
+/// The Windows notification for a downloaded update; clicking it opens
+/// Settings › About, whose button restarts into it.
+fn notify_ready(version: &str) {
+    let shown = toast::show(
+        "Loupe update ready",
+        &format!("Version {version} is ready. Click to open Settings and update."),
+        &deeplink::for_settings("about"),
+        include_bytes!("../assets/icon.ico"),
+    );
+    if let Err(err) = shown {
+        eprintln!("[update] {err}");
     }
 }

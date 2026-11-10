@@ -16,7 +16,7 @@ use loupe_core::{
 };
 use loupe_search::Row;
 
-use super::{Launcher, views::Screen};
+use super::{Launcher, OpenSettings, views::Screen};
 
 /// `settings` key: ids of the items that open from links without asking,
 /// one per line.
@@ -67,6 +67,8 @@ impl Launcher {
     ) {
         let link = match deeplink::parse(&text) {
             Ok(Deeplink::Open) => return self.open(window, cx),
+            // The app opens these before they get here; this is the fallback.
+            Ok(Deeplink::Settings(_)) => return window.dispatch_action(Box::new(OpenSettings), cx),
             Ok(Deeplink::Command(link)) => link,
             Err(err) => {
                 eprintln!("[loupe] can't open {text:?}: {err}");
