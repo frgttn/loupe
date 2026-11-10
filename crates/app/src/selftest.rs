@@ -106,6 +106,30 @@ pub async fn run(window: WindowHandle<Launcher>, cx: &mut AsyncApp) {
         }
     );
 
+    // Backspace held with Shift or Alt still deletes one character:
+    // "visual X|studio " -> "visual |studio " -> "visual|studio ".
+    let mut modded = edited.clone();
+    for keys in ["shift-backspace", "alt-backspace"] {
+        let keystroke = Keystroke::parse(keys).expect("valid keystroke");
+        cx.update_window(window.into(), |_, window, cx| {
+            window.dispatch_keystroke(keystroke, cx)
+        })
+        .ok();
+        sleep(SETTLE_MS).await;
+        let now = window
+            .update(cx, |launcher, _, cx| launcher.query(cx))
+            .unwrap_or_default();
+        let expected = match keys {
+            "shift-backspace" => "visual studio ",
+            _ => "visualstudio ",
+        };
+        eprintln!(
+            "[selftest] {keys}: {modded:?} -> {now:?} {}",
+            if now == expected { "OK" } else { "FAIL" }
+        );
+        modded = now;
+    }
+
     // Root search end to end: the calculator's answer is the first row.
     // Ctrl+A first, so the typed text replaces the query.
     let select_all = Keystroke::parse("ctrl-a").expect("valid keystroke");

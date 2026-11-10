@@ -91,6 +91,14 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("backspace", Backspace, Some(CONTEXT)),
         // Binding it also stops Windows' Ctrl+Backspace DEL (0x7F) char from being typed.
         KeyBinding::new(&format!("{WORD}-backspace"), DeleteWordLeft, Some(CONTEXT)),
+        // GPUI matches modifiers exactly, so Backspace held with Shift (or
+        // Shift on top of the word modifier) would otherwise do nothing.
+        KeyBinding::new("shift-backspace", Backspace, Some(CONTEXT)),
+        KeyBinding::new(
+            &format!("{WORD}-shift-backspace"),
+            DeleteWordLeft,
+            Some(CONTEXT),
+        ),
         KeyBinding::new("delete", Delete, Some(CONTEXT)),
         KeyBinding::new(&format!("{WORD}-delete"), DeleteWordRight, Some(CONTEXT)),
         KeyBinding::new("left", Left, Some(CONTEXT)),
@@ -137,6 +145,13 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("down", Down, Some(MULTILINE_CONTEXT)),
         KeyBinding::new("shift-up", SelectUp, Some(MULTILINE_CONTEXT)),
         KeyBinding::new("shift-down", SelectDown, Some(MULTILINE_CONTEXT)),
+    ]);
+    // Alt is free on Windows and Linux; Alt(+Shift)+Backspace deletes a
+    // character like plain Backspace instead of being swallowed.
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("alt-backspace", Backspace, Some(CONTEXT)),
+        KeyBinding::new("alt-shift-backspace", Backspace, Some(CONTEXT)),
     ]);
     // macOS also takes Cmd+←/→ for the start and end of the row.
     #[cfg(target_os = "macos")]
