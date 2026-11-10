@@ -624,6 +624,8 @@ impl Launcher {
             win::native_handle(window).expect("the launcher window has no native handle");
         // A frameless popup gets square corners unless asked.
         win::round_corners(window_handle);
+        // GPUI would show it when a monitor is unplugged.
+        win::keep_hidden_on_display_change(window_handle);
         theme::set_system(theme::appearance_of(cx.window_appearance()));
 
         let input = cx.new(|cx| TextInput::new(SEARCH_PLACEHOLDER, cx));
